@@ -1,0 +1,32 @@
+{
+  "name": "plugin-external-push",
+  "version": "1.0.0",
+  "description": "Publisher which connects to allows data to be pushed into the system",
+  "main": "src/main.ts",
+  "scripts": {
+    "test": "jest"
+  },
+  "author": "Aunalytics Inc.",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "@grpc/grpc-js": "^1.8.17",
+    "express": "^4.18.2",
+    "fix-esm": "^1.0.1",
+    "google-protobuf": "^3.21.2",
+    "nodemon": "^3.0.1"
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "^1.23.1",
+    "@types/express": "^4.17.17",
+    "@types/jest": "^29.5.3",
+    "@types/node": "^16.18.39",
+    "grpc_tools_node_protoc_ts": "^5.3.3",
+    "grpc-tools": "^1.12.4",
+    "jest": "^29.6.1",
+    "ts-jest": "^29.1.1",
+    "ts-node": "^10.9.1",
+    "tsc": "^2.0.4",
+    "typescript": "^5.1.6"
+  }
+}
