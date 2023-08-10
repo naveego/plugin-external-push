@@ -49,6 +49,7 @@ import { GetAllSchemas } from '../api/discover/get-all-schemas';
 import express from "express";
 import _, { Dictionary } from 'lodash';
 import * as ReadConfig from '../api/read/get-schema-json';
+import { InjectAuthenticationMiddleware } from '../api/read/authentication-middleware';
 
 // global plugin constants
 let logger = new Logger();
@@ -69,8 +70,7 @@ function waitForDisconnect(): void {
     }
 }
 
-async function connectImpl(request: ConnectRequest): Promise<ConnectResponse>
-{
+async function connectImpl(request: ConnectRequest): Promise<ConnectResponse> {
     logger.SetLogPrefix("connect");
     logger.Info('Connecting...');
 
@@ -188,6 +188,7 @@ export class Plugin implements IPublisherServer {
 
         let configFormResponse = new ConfigurationFormResponse();
 
+        // TODO: Validate data and state json
         let dataJson = call.request.getForm()?.getDataJson() ?? "";
         let stateJson = call.request.getForm()?.getStateJson() ?? "";
 
@@ -265,6 +266,8 @@ export class Plugin implements IPublisherServer {
                     next(error);
                 }
             });
+
+            InjectAuthenticationMiddleware(app);
 
             // start the express server
             serverStatus.expressServer = app.listen(port, () => {

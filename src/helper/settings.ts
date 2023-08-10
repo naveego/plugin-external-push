@@ -22,6 +22,9 @@ export function ValidateSettings(settings: Settings): boolean {
 
     let propertyNames = _.cloneDeep(settings.inputSchema.map(p => p.propertyName));
     settings.inputSchema.forEach((prop, i) => {
+        // clear property name so that it isn't tripping duplicates check
+        propertyNames[i] = "";
+
         if (!prop.propertyName) {
             throw new Error(`Input Schema: Property ${i+1} does not have a name`);
         }
@@ -31,7 +34,6 @@ export function ValidateSettings(settings: Settings): boolean {
         if (propertyNames.includes(prop.propertyName)) {
             throw new Error(`Input Schema: Found duplicate properties with name \"${prop.propertyName}\"`);
         }
-        propertyNames.splice(0, 1);
     });
 
     if (settings.tokenValidationEndpoint) {

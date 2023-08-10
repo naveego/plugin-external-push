@@ -1,22 +1,23 @@
 import { Settings } from "../../helper/settings";
 import { Logger } from "../../logger/logger";
-import { Property, PropertyType, Schema } from "../../proto/publisher_pb";
+import { Count, Property, PropertyType, Schema } from "../../proto/publisher_pb";
 
 export async function GetAllSchemas(logger: Logger, settings: Settings, sampleSize: number): Promise<Schema[]> {
-    let schema: Schema = new Schema();
-    schema.setId("external-push-schema"); // TODO: Update schema id & name
-    schema.setName("External Push Schema"); 
-    schema.setDataFlowDirection(Schema.DataFlowDirection.READ);
+    let schema: Schema = new Schema()
+        .setId("external-push-schema")
+        .setName("External Push Schema")
+        .setDataFlowDirection(Schema.DataFlowDirection.READ);
     
     let inputProperties = settings.inputSchema;
     inputProperties.forEach((inputProperty, i) => {
-        let propertyToAdd = new Property();
-        propertyToAdd.setId(inputProperty.propertyName);
-        propertyToAdd.setName(inputProperty.propertyName);
-        propertyToAdd.setIsKey(false);
-        propertyToAdd.setIsNullable(true);
-        propertyToAdd.setType(GetType(inputProperty.propertyType));
-        propertyToAdd.setTypeAtSource(inputProperty.propertyType);
+        let propertyToAdd = new Property()
+            .setId(inputProperty.propertyName)
+            .setName(inputProperty.propertyName)
+            .setDescription('')
+            .setIsKey(false)
+            .setIsNullable(true)
+            .setType(GetType(inputProperty.propertyType))
+            .setTypeAtSource(inputProperty.propertyType);
 
         schema.addProperties(propertyToAdd, i);
     });
@@ -45,6 +46,9 @@ export function GetType(dataType: string): PropertyType {
     }
 }
 
-export async function AddSampleAndCount(schema: Schema, sampleSize: number): Promise<Schema> {
-    return schema; // TODO: Read records here & take sample size
+export function AddSampleAndCount(schema: Schema, sampleSize: number): Promise<Schema> {
+    // TODO: Read records here & update sample size
+    return new Promise(res => res(
+        schema.setCount(new Count().setValue(1))
+    ));
 }
