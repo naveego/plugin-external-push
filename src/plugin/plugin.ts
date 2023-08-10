@@ -10,6 +10,7 @@ import {
     BeginOAuthFlowResponse,
     CompleteOAuthFlowRequest,
     CompleteOAuthFlowResponse,
+    ConfigurationFormResponse,
     ConfigureConnectionRequest,
     ConfigureConnectionResponse,
     ConfigureQueryRequest,
@@ -163,9 +164,26 @@ export class Plugin implements IPublisherServer {
     }
 
     configureRealTime(call: ServerUnaryCall<ConfigureRealTimeRequest, ConfigureRealTimeResponse>, callback: sendUnaryData<ConfigureRealTimeResponse>) {
+        logger.Info("Configuring real time...");
+
+        let schemaJson = ""; // TODO: Implement Read.GetSchemaJson()
+        let uiJson = ""; // TODO: Implement Read.GetUIJson()
+
         let response = new ConfigureRealTimeResponse();
 
-        // TODO: implement
+        let configFormResponse = new ConfigurationFormResponse();
+
+        let dataJson = call.request.getForm()?.getDataJson() ?? "";
+        let stateJson = call.request.getForm()?.getStateJson() ?? "";
+
+        configFormResponse.setDataJson(dataJson);
+        configFormResponse.setDataErrorsJson("");
+        configFormResponse.setErrorsList([]);
+        configFormResponse.setSchemaJson(schemaJson);
+        configFormResponse.setUiJson(uiJson);
+        configFormResponse.setStateJson(stateJson);
+
+        response.setForm(configFormResponse);
         
         return response;
     }
