@@ -32,6 +32,7 @@ import {
     DiscoverSchemasResponse,
     PrepareWriteRequest,
     PrepareWriteResponse,
+    PropertyType,
     ReadRequest,
     Record,
     RecordAck,
@@ -45,10 +46,11 @@ import { ServerStatus } from '../helper/server-status';
 import * as fs from 'fs';
 import { GetAllSchemas } from '../api/discover/get-all-schemas';
 import express from "express";
+import _, { Dictionary } from 'lodash';
 
 // global plugin constants
-var logger = new Logger();
-var serverStatus: ServerStatus = {
+let logger = new Logger();
+let serverStatus: ServerStatus = {
     connected: false,
     settings: {
         port: 0,
@@ -78,7 +80,7 @@ async function connectImpl(request: ConnectRequest): Promise<ConnectResponse>
             tokenValidationEndpoint: '',
             inputSchema: []
         };
-        var parsed = JSON.parse(request.getSettingsJson());
+        let parsed = JSON.parse(request.getSettingsJson());
         Object.assign(settings, parsed);
 
         // assign settings to global context
@@ -86,7 +88,7 @@ async function connectImpl(request: ConnectRequest): Promise<ConnectResponse>
     } catch (error: any) {
         logger.Error(error);
 
-        var response = new ConnectResponse();
+        let response = new ConnectResponse();
         response.setSettingsError(error.toString())
         return response;
     }
@@ -96,7 +98,7 @@ async function connectImpl(request: ConnectRequest): Promise<ConnectResponse>
     } catch (error: any) {
         logger.Error(error);
 
-        var response = new ConnectResponse();
+        let response = new ConnectResponse();
         response.setSettingsError(error.toString())
         return response;
     }
@@ -105,7 +107,7 @@ async function connectImpl(request: ConnectRequest): Promise<ConnectResponse>
 
     logger.Info('Settings validated');
 
-    var response = new ConnectResponse();
+    let response = new ConnectResponse();
 
     return response;
 }
@@ -151,10 +153,8 @@ export class Plugin implements IPublisherServer {
     }
 
     async discoverSchemas(call: ServerUnaryCall<DiscoverSchemasRequest, DiscoverSchemasResponse>, callback: sendUnaryData<DiscoverSchemasResponse>) {
-        var schemas: Schema[];
-
         // get schemas
-        var response = new DiscoverSchemasResponse();
+        let response = new DiscoverSchemasResponse();
         response.setSchemasList(
             await GetAllSchemas(logger, serverStatus.settings, call.request.getSampleSize())
         );
@@ -163,7 +163,7 @@ export class Plugin implements IPublisherServer {
     }
 
     configureRealTime(call: ServerUnaryCall<ConfigureRealTimeRequest, ConfigureRealTimeResponse>, callback: sendUnaryData<ConfigureRealTimeResponse>) {
-        var response = new ConfigureRealTimeResponse();
+        let response = new ConfigureRealTimeResponse();
 
         // TODO: implement
         
@@ -184,10 +184,43 @@ export class Plugin implements IPublisherServer {
                     // get input data
                     let data = req.body;
 
-                    // build record
-                    var record = new Record();
+                    // get input schema
+                    let schema = call.request.getSchema();
+                    if (_.isNil(schema)) {
+                        throw new Error("Cannot start read stream: Input schema is undefined");
+                    }
 
-                    //TODO: add data to record and add fields to record
+                    // build record
+                    let recordMap: Dictionary<any> = {};
+                    for (let i = 0; i < schema.getPropertiesList().length; i++) {
+                        const property = schema.getPropertiesList()[i];
+                        const propId = property.getId();
+                        try {
+                            switch (property.getType()) {
+                                case PropertyType.STRING:
+                                case PropertyType.TEXT:
+                                case PropertyType.DECIMAL:
+                                    recordMap[propId] = `${data?.[propId]}`;
+                                    break;
+                                default:
+                                    recordMap[propId] = data?.[propId];
+                                    break;
+                            }
+                        }
+                        catch (e: any) {
+                            if (_.isError(e)) {
+                                logger.Error(e, `No column with property id: ${propId}\n` + e.message);
+                            }
+                            else {
+                                logger.Error(e, `No column with property id: ${propId}\n${e}`);
+                            }
+                            recordMap[propId] = null;
+                        }
+                    }
+
+                    let record = new Record();
+                    record.setAction(Record.Action.UPSERT);
+                    record.setDataJson(JSON.stringify(recordMap));
 
                     // upload record to agent
                     call.write(record);
@@ -201,7 +234,7 @@ export class Plugin implements IPublisherServer {
             });
 
             // start the express server
-            serverStatus.expressServer = app.listen( port, () => {
+            serverStatus.expressServer = app.listen(port, () => {
                 logger.Info(`input server started at http://localhost:${ port }`);
             });
         }

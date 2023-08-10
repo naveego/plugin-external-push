@@ -14,7 +14,7 @@ export async function GetAllSchemas(logger: Logger, settings: Settings, sampleSi
         propertyToAdd.setId(inputProperty.propertyName);
         propertyToAdd.setName(inputProperty.propertyName);
         propertyToAdd.setIsKey(false);
-        propertyToAdd.setIsNullable(false);
+        propertyToAdd.setIsNullable(true);
         propertyToAdd.setType(GetType(inputProperty.propertyType));
         propertyToAdd.setTypeAtSource(inputProperty.propertyType);
 

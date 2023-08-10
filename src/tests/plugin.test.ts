@@ -15,14 +15,14 @@ import { PublisherClient } from '../proto/publisher_grpc_pb';
 import { ConnectRequest, DiscoverSchemasRequest, OAuthConfiguration } from '../proto/publisher_pb';
 import { Settings } from '../helper/settings';
 
-var globalPort = -1;
-var globalServer: Server;
+let globalPort = -1;
+let globalServer: Server;
 
 function startServerIfNotRunning() {
     // Start server
     const server = new Server();
 
-    var ready = new Promise((resolve, reject) => {
+    let ready = new Promise((resolve, reject) => {
         server.bindAsync(`0.0.0.0:${0}`, ServerCredentials.createInsecure(), (err, port) => {
             server.addService(PublisherService, new Plugin());
             server.start();
@@ -45,13 +45,13 @@ function getGrpcClient() {
 }
 
 function getConnectRequest() {
-    var settings: Settings = {
+    let settings: Settings = {
         port: 0,
         tokenValidationEndpoint: '',
         inputSchema: []
     };
 
-    var connectRequest = new ConnectRequest();
+    let connectRequest = new ConnectRequest();
     connectRequest.setSettingsJson(JSON.stringify(settings));
     connectRequest.setOauthConfiguration(new OAuthConfiguration());
     connectRequest.setOauthStateJson("");
@@ -60,7 +60,7 @@ function getConnectRequest() {
 }
 
 function getDiscoverSchemasRequest() {
-    var discoverSchemasRequest = new DiscoverSchemasRequest();
+    let discoverSchemasRequest = new DiscoverSchemasRequest();
     discoverSchemasRequest.setMode(DiscoverSchemasRequest.Mode.ALL);
     discoverSchemasRequest.setSampleSize(1);
 
@@ -82,7 +82,7 @@ describe('plugin module', () => {
     // });
 
     test('discover all', async () => {
-        var promise = new Promise((resolve, reject) => {
+        let promise = new Promise((resolve, reject) => {
             startServerIfNotRunning()
             .then((port) => {
                 let client = getGrpcClient();
