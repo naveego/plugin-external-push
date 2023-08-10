@@ -45,7 +45,6 @@ import { ServerStatus } from '../helper/server-status';
 import * as fs from 'fs';
 import { GetAllSchemas } from '../api/discover/get-all-schemas';
 import express from "express";
-import path from "path";
 
 // global plugin constants
 var logger = new Logger();
@@ -60,7 +59,7 @@ var serverStatus: ServerStatus = {
 };
 
 // common implementations
-function waitForDisconnect (): void {
+function waitForDisconnect(): void {
     if (!serverStatus.connected) {
         setTimeout(waitForDisconnect, 1000);
     }
@@ -85,7 +84,7 @@ async function connectImpl(request: ConnectRequest): Promise<ConnectResponse>
         // assign settings to global context
         serverStatus.settings = settings;
     } catch (error: any) {
-        logger.Error(error.toString());
+        logger.Error(error);
 
         var response = new ConnectResponse();
         response.setSettingsError(error.toString())
@@ -95,7 +94,7 @@ async function connectImpl(request: ConnectRequest): Promise<ConnectResponse>
     try {
         ValidateSettings(serverStatus.settings);
     } catch (error: any) {
-        logger.Error(error.toString());
+        logger.Error(error);
 
         var response = new ConnectResponse();
         response.setSettingsError(error.toString())
@@ -115,57 +114,55 @@ export class Plugin implements IPublisherServer {
 
     [name: string]: import("@grpc/grpc-js").UntypedHandleCall;
     
-    configure(call: ServerUnaryCall<ConfigureRequest, ConfigureResponse>, callback:sendUnaryData<ConfigureResponse>) {
+    configure(call: ServerUnaryCall<ConfigureRequest, ConfigureResponse>, callback: sendUnaryData<ConfigureResponse>) {
         // ensure all directories
-        if (!fs.existsSync(call.request.getTemporaryDirectory())) {
-            fs.mkdirSync(call.request.getTemporaryDirectory());
+        let tempDir = call.request.getTemporaryDirectory();
+        if (!fs.existsSync(tempDir)) {
+            fs.mkdirSync(tempDir);
         }
 
-        if (!fs.existsSync(call.request.getPermanentDirectory())) {
-            fs.mkdirSync(call.request.getPermanentDirectory());
+        let permanentDir = call.request.getPermanentDirectory();
+        if (!fs.existsSync(permanentDir)) {
+            fs.mkdirSync(permanentDir);
         }
 
-        if (!fs.existsSync(call.request.getLogDirectory())) {
-            fs.mkdirSync(call.request.getLogDirectory());
+        let logDir = call.request.getLogDirectory();
+        if (!fs.existsSync(logDir)) {
+            fs.mkdirSync(logDir);
         }
 
         // configure logger
         logger.SetLogLevel(call.request.getLogLevel());
         serverStatus.config = call.request;
 
-        let response = new ConfigureResponse();
-        callback(null, response);
+        callback(null, new ConfigureResponse());
     };
 
-    async connect(call: ServerUnaryCall<ConnectRequest, ConnectResponse>, callback:sendUnaryData<ConnectResponse>) {
-        var response = await connectImpl(call.request);
-    
-        callback(null, response);
+    async connect(call: ServerUnaryCall<ConnectRequest, ConnectResponse>, callback: sendUnaryData<ConnectResponse>) {
+        callback(null, await connectImpl(call.request));
     }
 
     async connectSession(call: ServerWritableStream<ConnectRequest, ConnectResponse>) {
-        var response = await connectImpl(call.request);
-        
-        call.write(response);
-    
+        call.write(await connectImpl(call.request));
+
         // sit forever and don't block
         waitForDisconnect();
         call.end();
     }
 
-    async discoverSchemas(call: ServerUnaryCall<DiscoverSchemasRequest, DiscoverSchemasResponse>, callback:sendUnaryData<DiscoverSchemasResponse>) {
+    async discoverSchemas(call: ServerUnaryCall<DiscoverSchemasRequest, DiscoverSchemasResponse>, callback: sendUnaryData<DiscoverSchemasResponse>) {
         var schemas: Schema[];
 
         // get schemas
-        schemas = await GetAllSchemas(logger, serverStatus.settings, call.request.getSampleSize());
-        
         var response = new DiscoverSchemasResponse();
-        response.setSchemasList(schemas);
+        response.setSchemasList(
+            await GetAllSchemas(logger, serverStatus.settings, call.request.getSampleSize())
+        );
     
         callback(null, response);
     }
 
-    configureRealTime(call: ServerUnaryCall<ConfigureRealTimeRequest, ConfigureRealTimeResponse>, callback:sendUnaryData<ConfigureRealTimeResponse>) {
+    configureRealTime(call: ServerUnaryCall<ConfigureRealTimeRequest, ConfigureRealTimeResponse>, callback: sendUnaryData<ConfigureRealTimeResponse>) {
         var response = new ConfigureRealTimeResponse();
 
         // TODO: implement
@@ -198,10 +195,10 @@ export class Plugin implements IPublisherServer {
                     // send response to api request
                     res.sendStatus(200);
                 } catch (error: any) {
-                    logger.Error(error.toString());
+                    logger.Error(error);
                     next(error);
                 }
-            })
+            });
 
             // start the express server
             serverStatus.expressServer = app.listen( port, () => {
@@ -212,9 +209,7 @@ export class Plugin implements IPublisherServer {
         call.end();
     }
 
-    disconnect(call: ServerUnaryCall<DisconnectRequest , DisconnectResponse>, callback:sendUnaryData<DisconnectResponse>) {
-        var response = new DisconnectResponse();
-
+    disconnect(call: ServerUnaryCall<DisconnectRequest , DisconnectResponse>, callback: sendUnaryData<DisconnectResponse>) {
         serverStatus?.expressServer?.close();
 
         serverStatus = {
@@ -227,41 +222,41 @@ export class Plugin implements IPublisherServer {
             expressServer: undefined
         };
     
-        callback(null, response);
+        callback(null, new DisconnectResponse());
     }
 
     // not implemented
-    beginOAuthFlow(call: ServerUnaryCall<BeginOAuthFlowRequest, BeginOAuthFlowResponse>, callback:sendUnaryData<BeginOAuthFlowResponse>) {
+    beginOAuthFlow(call: ServerUnaryCall<BeginOAuthFlowRequest, BeginOAuthFlowResponse>, callback: sendUnaryData<BeginOAuthFlowResponse>) {
         throw new Error("not Implemented");
     }
-    completeOAuthFlow(call: ServerUnaryCall<CompleteOAuthFlowRequest, CompleteOAuthFlowResponse>, callback:sendUnaryData<CompleteOAuthFlowResponse>) {
+    completeOAuthFlow(call: ServerUnaryCall<CompleteOAuthFlowRequest, CompleteOAuthFlowResponse>, callback: sendUnaryData<CompleteOAuthFlowResponse>) {
         throw new Error("not Implemented");
     }
-    configureConnection(call: ServerUnaryCall<ConfigureConnectionRequest, ConfigureConnectionResponse>, callback:sendUnaryData<ConfigureConnectionResponse>) {
+    configureConnection(call: ServerUnaryCall<ConfigureConnectionRequest, ConfigureConnectionResponse>, callback: sendUnaryData<ConfigureConnectionResponse>) {
         throw new Error("not Implemented");
     }
-    configureQuery(call: ServerUnaryCall<ConfigureQueryRequest, ConfigureQueryResponse>, callback:sendUnaryData<ConfigureQueryResponse>) {
+    configureQuery(call: ServerUnaryCall<ConfigureQueryRequest, ConfigureQueryResponse>, callback: sendUnaryData<ConfigureQueryResponse>) {
         throw new Error("not Implemented");
     }
-    discoverShapes(call: ServerUnaryCall<DiscoverSchemasRequest, DiscoverSchemasResponse>, callback:sendUnaryData<DiscoverSchemasResponse>) {
+    discoverShapes(call: ServerUnaryCall<DiscoverSchemasRequest, DiscoverSchemasResponse>, callback: sendUnaryData<DiscoverSchemasResponse>) {
         throw new Error("not Implemented");
     }
     discoverSchemasStream(call: ServerWritableStream<DiscoverSchemasRequest, Schema>) {
         throw new Error("not Implemented");
     }
-    discoverRelatedEntities(call: ServerUnaryCall<DiscoverRelatedEntitiesRequest, DiscoverRelatedEntitiesResponse>, callback:sendUnaryData<DiscoverRelatedEntitiesResponse>) {
+    discoverRelatedEntities(call: ServerUnaryCall<DiscoverRelatedEntitiesRequest, DiscoverRelatedEntitiesResponse>, callback: sendUnaryData<DiscoverRelatedEntitiesResponse>) {
         throw new Error("not Implemented");
     }
     publishStream(call: ServerWritableStream<ReadRequest, Record>) {
         throw new Error("not Implemented");
     }
-    configureWrite(call: ServerUnaryCall<ConfigureWriteRequest, ConfigureWriteResponse>, callback:sendUnaryData<ConfigureWriteResponse>) {
+    configureWrite(call: ServerUnaryCall<ConfigureWriteRequest, ConfigureWriteResponse>, callback: sendUnaryData<ConfigureWriteResponse>) {
         throw new Error("not Implemented");
     }
-    configureReplication(call: ServerUnaryCall<ConfigureReplicationRequest, ConfigureReplicationResponse>, callback:sendUnaryData<ConfigureReplicationResponse>) {
+    configureReplication(call: ServerUnaryCall<ConfigureReplicationRequest, ConfigureReplicationResponse>, callback: sendUnaryData<ConfigureReplicationResponse>) {
         throw new Error("not Implemented");
     }
-    prepareWrite(call: ServerUnaryCall<PrepareWriteRequest, PrepareWriteResponse>, callback:sendUnaryData<PrepareWriteResponse>) {
+    prepareWrite(call: ServerUnaryCall<PrepareWriteRequest, PrepareWriteResponse>, callback: sendUnaryData<PrepareWriteResponse>) {
         throw new Error("not Implemented");
     }
     writeStream(call: ServerDuplexStream<Record, RecordAck>) {

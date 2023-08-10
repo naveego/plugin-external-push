@@ -11,15 +11,18 @@ export interface InputSchemaProperty {
 
 export function ValidateSettings(settings: Settings): boolean {
     if (!settings.port) {
-        throw Error("Port is undefined");
+        throw new Error("Port is undefined");
     }
 
     if (settings?.inputSchema.length <= 0) {
-        throw Error("At least one Input Schema Property must be defined");
+        throw new Error("At least one Input Schema Property must be defined");
     }
 
     if (settings.tokenValidationEndpoint) {
-        // TODO: check if token validation endpoint is a valid one
+        let urlRegex = new RegExp(/^((https|http):\/\/)?(www.)?[a-z0-9]+(.[a-z]{2,}){1,3}(#?\/?[a-zA-Z0-9#]+)*\/?(?:[a-zA-Z0-9-_]+=[a-zA-Z0-9-%]+&?)?$/);
+        if (!urlRegex.test(settings.tokenValidationEndpoint)) {
+            throw new Error("Token validation endpoint is not a valid URL");
+        }
     }
 
     return true;

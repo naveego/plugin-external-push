@@ -1,4 +1,5 @@
 import { LogLevel } from "../proto/publisher_pb";
+import _ from 'lodash';
 
 export class Logger {
     logPrefix: string = '';
@@ -9,21 +10,32 @@ export class Logger {
 
     }
 
-    getLevelString() {
-        switch(this.logLevel) {
+    getLevelString(level?: LogLevel) {
+        switch(level ?? this.logLevel) {
+            case LogLevel.INFO:
+                return "INFO";
             case LogLevel.DEBUG:
-                return "DEBUG"
+                return "DEBUG";
             case LogLevel.ERROR:
-                return "ERROR"
+                return "ERROR";
             case LogLevel.TRACE:
-                return "TRACE"
+                return "TRACE";
             case LogLevel.WARN:
-                return "WARN"
+                return "WARN";
         }
     }
 
-    log(message: string) {
-        console.error(`[${this.getLevelString()}] ${message}`)
+    formatLogMsg(message: string, level?: LogLevel): string {
+        return `[${this.getLevelString(level)}] ${message}`;
+    }
+
+    formatLogError(error: Error, level?: LogLevel, message?: string): string {
+        if (_.isNil(message)) {
+            return `[${this.getLevelString(level)}] ${error.stack}`;
+        }
+        else {
+            return `[${this.getLevelString(level)}] ${message+":\n\n"}${error.stack}`;
+        }
     }
 
     Verbose(message: string) {
@@ -31,7 +43,7 @@ export class Logger {
             return;
         }
 
-        this.log(message);
+        console.trace(this.formatLogMsg(message, LogLevel.TRACE));
     }
 
     Debug(message: string) {
@@ -39,7 +51,7 @@ export class Logger {
             return;
         }
 
-        this.log(message);
+        console.debug(this.formatLogMsg(message, LogLevel.DEBUG));
     }
 
     Info(message: string) {
@@ -47,15 +59,28 @@ export class Logger {
             return;
         }
 
-        this.log(message);
+        console.log(this.formatLogMsg(message, LogLevel.INFO));
     }
 
-    Error(message: string) {
+    Error(error: Error, message?: string) {
         if (this.logLevel < LogLevel.ERROR) {
             return;
         }
 
-        this.log(message);
+        if (_.isNil(message)) {
+            console.log(this.formatLogError(error, LogLevel.ERROR));
+        }
+        else {
+            console.log(this.formatLogError(error, LogLevel.ERROR, message));
+        }
+    }
+
+    Warn(message: string) {
+        if (this.logLevel < LogLevel.WARN) {
+            return;
+        }
+
+        console.warn(this.formatLogMsg(message, LogLevel.WARN));
     }
 
     SetLogLevel(level: LogLevel) {
