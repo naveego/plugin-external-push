@@ -7,7 +7,12 @@ import {
     PublisherService
 } from './proto/publisher_grpc_pb';
 
-import { Plugin} from './plugin/plugin'
+import { Plugin} from './plugin/plugin';
+import path from 'path';
+
+export function getAppRootDirectory(): string {
+    return path.join(__dirname, '..');
+}
 
 async function main() {
     // Start server

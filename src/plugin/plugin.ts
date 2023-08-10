@@ -48,6 +48,7 @@ import * as fs from 'fs';
 import { GetAllSchemas } from '../api/discover/get-all-schemas';
 import express from "express";
 import _, { Dictionary } from 'lodash';
+import * as ReadConfig from '../api/read/get-schema-json';
 
 // global plugin constants
 let logger = new Logger();
@@ -154,20 +155,34 @@ export class Plugin implements IPublisherServer {
     }
 
     async discoverSchemas(call: ServerUnaryCall<DiscoverSchemasRequest, DiscoverSchemasResponse>, callback: sendUnaryData<DiscoverSchemasResponse>) {
+        logger.SetLogPrefix("discover");
+        logger.Info("Discovering schemas...");
+
         // get schemas
         let response = new DiscoverSchemasResponse();
-        response.setSchemasList(
-            await GetAllSchemas(logger, serverStatus.settings, call.request.getSampleSize())
-        );
-    
+
+        logger.Info("Schemas found: 1");
+        let schema = await GetAllSchemas(logger, serverStatus.settings, call.request.getSampleSize());
+        response.setSchemasList(schema);
+
+        if (call.request.getMode() === DiscoverSchemasRequest.Mode.REFRESH)
+        {
+            let refreshSchemas = call.request.getToRefreshList();
+            // TODO: Refresh schema
+        
+            logger.Debug(`Schemas found: ${JSON.stringify([schema])}`);
+            logger.Debug(`Refresh requested on schema: ${JSON.stringify(refreshSchemas)}`);
+        }
+
+        logger.Info("Schemas returned: 1");
         callback(null, response);
     }
 
-    configureRealTime(call: ServerUnaryCall<ConfigureRealTimeRequest, ConfigureRealTimeResponse>, callback: sendUnaryData<ConfigureRealTimeResponse>) {
+    async configureRealTime(call: ServerUnaryCall<ConfigureRealTimeRequest, ConfigureRealTimeResponse>, callback: sendUnaryData<ConfigureRealTimeResponse>) {
         logger.Info("Configuring real time...");
 
-        let schemaJson = ""; // TODO: Implement Read.GetSchemaJson()
-        let uiJson = ""; // TODO: Implement Read.GetUIJson()
+        let schemaJson = (await ReadConfig.GetSchemaJson()) ?? "";
+        let uiJson = (await ReadConfig.GetUIJson()) ?? "";
 
         let response = new ConfigureRealTimeResponse();
 

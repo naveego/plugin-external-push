@@ -46,5 +46,5 @@ export function GetType(dataType: string): PropertyType {
 }
 
 export async function AddSampleAndCount(schema: Schema, sampleSize: number): Promise<Schema> {
-    // TODO: Read records here & take sample size
+    return schema; // TODO: Read records here & take sample size
 }
