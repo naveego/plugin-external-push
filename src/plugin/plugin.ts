@@ -213,6 +213,7 @@ export class Plugin implements IPublisherServer {
             const app = express();
             const port = serverStatus.settings.port;
 
+            // Posting data to the agent
             app.post("/externalpush", (req, res, next) => {
                 try {
                     // get input data
@@ -263,9 +264,15 @@ export class Plugin implements IPublisherServer {
                     res.sendStatus(200);
                 } catch (error: any) {
                     logger.Error(error);
+                    res.sendStatus(500);
                     next(error);
                 }
             });
+
+            // // Deleting data from the agent
+            // app.delete("/externalpush", (req, res, next) => {
+                
+            // });
 
             InjectAuthenticationMiddleware(app);
 

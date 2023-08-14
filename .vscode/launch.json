@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "command": "npm run test",
+            "command": "npm run test --detectOpenHandles",
             "name": "Run Jest Tests",
             "request": "launch",
             "type": "node-terminal"
