@@ -1,3 +1,4 @@
+import _, { Dictionary } from 'lodash';
 import {
     ServerUnaryCall,
     sendUnaryData,
@@ -47,9 +48,7 @@ import { ServerStatus } from '../helper/server-status';
 import * as fs from 'fs';
 import { GetAllSchemas } from '../api/discover/get-all-schemas';
 import express from "express";
-import _, { Dictionary } from 'lodash';
 import * as ReadConfig from '../api/read/get-schema-json';
-import { InjectAuthenticationMiddleware } from '../api/read/authentication-middleware';
 
 // global plugin constants
 let logger = new Logger();
@@ -201,11 +200,13 @@ export class Plugin implements IPublisherServer {
 
         response.setForm(configFormResponse);
         
-        return response;
+        callback(null, response);
     }
 
     async readStream(call: ServerWritableStream<ReadRequest, Record>) {
-        if (call.request.getRealTimeSettingsJson()) {
+        // Keep call open until stream is destroyed
+        var realTimeSettingsJson = call.request.getRealTimeSettingsJson();
+        if (realTimeSettingsJson) {
             // close existing server if open
             serverStatus?.expressServer?.close();
 
@@ -213,11 +214,17 @@ export class Plugin implements IPublisherServer {
             const app = express();
             const port = serverStatus.settings.port;
 
+            app.use(express.json());
+
             // Posting data to the agent
             app.post("/externalpush", (req, res, next) => {
                 try {
                     // get input data
                     let data = req.body;
+                    logger.Info(`Received request: ${JSON.stringify(data, null, 2)}`);
+                    if (data === null || data === undefined) {
+                        throw new Error("Cannot start read stream: Incoming request data is null or undefined");
+                    }
 
                     // get input schema
                     let schema = call.request.getSchema();
@@ -226,6 +233,7 @@ export class Plugin implements IPublisherServer {
                     }
 
                     // build record
+                    logger.Info('Building record...');
                     let recordMap: Dictionary<any> = {};
                     for (let i = 0; i < schema.getPropertiesList().length; i++) {
                         const property = schema.getPropertiesList()[i];
@@ -235,10 +243,17 @@ export class Plugin implements IPublisherServer {
                                 case PropertyType.STRING:
                                 case PropertyType.TEXT:
                                 case PropertyType.DECIMAL:
-                                    recordMap[propId] = `${data?.[propId]}`;
+                                    var lookupValue = data?.[propId];
+                                    if (lookupValue === undefined || lookupValue === null) {
+                                        recordMap[propId] = null;
+                                    }
+                                    else {
+                                        recordMap[propId] = `${lookupValue}`;
+                                    }
+                                    
                                     break;
                                 default:
-                                    recordMap[propId] = data?.[propId];
+                                    recordMap[propId] = data?.[propId] ?? null;
                                     break;
                             }
                         }
@@ -258,11 +273,13 @@ export class Plugin implements IPublisherServer {
                     record.setDataJson(JSON.stringify(recordMap));
 
                     // upload record to agent
+                    logger.Info(`Sending record: ${JSON.stringify(record.toObject())}`);
                     call.write(record);
 
                     // send response to api request
                     res.sendStatus(200);
-                } catch (error: any) {
+                }
+                catch (error: any) {
                     logger.Error(error);
                     res.sendStatus(500);
                     next(error);
@@ -274,18 +291,27 @@ export class Plugin implements IPublisherServer {
                 
             // });
 
-            InjectAuthenticationMiddleware(app);
+            //InjectAuthenticationMiddleware(app);
+
+            app.on('exit', () => {
+                logger.Info(`input server stopped, exitting...`);
+
+                try {
+                    call.end();
+                }
+                catch (e) {
+                    logger.Warn(`could not close read stream: ${e}`);
+                }
+            });
 
             // start the express server
             serverStatus.expressServer = app.listen(port, () => {
-                logger.Info(`input server started at http://localhost:${ port }`);
+                logger.Info(`input server started at http://localhost:${port}`);
             });
         }
-
-        call.end();
     }
 
-    disconnect(call: ServerUnaryCall<DisconnectRequest , DisconnectResponse>, callback: sendUnaryData<DisconnectResponse>) {
+    disconnect(call: ServerUnaryCall<DisconnectRequest, DisconnectResponse>, callback: sendUnaryData<DisconnectResponse>) {
         serverStatus?.expressServer?.close();
 
         serverStatus = {

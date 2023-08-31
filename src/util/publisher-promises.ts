@@ -12,9 +12,14 @@ export function endpointPromise<Request, Response>(
     request: Request
 ): Promise<Response> {
     return new Promise<Response>((resolve, reject) => {
-        endpoint.call(client, request, (error, response) => {
-            if (error) reject(error);
-            else resolve(response);
-        });
+        try {
+            endpoint.call(client, request, (error, response) => {
+                if (error) reject(error);
+                else resolve(response);
+            });
+        }
+        catch (e) {
+            reject(e);
+        }
     });
 };

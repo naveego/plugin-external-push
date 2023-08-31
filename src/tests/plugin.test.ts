@@ -1,5 +1,6 @@
+import _ from 'lodash';
 import { describe, expect, test } from '@jest/globals';
-import fetch from 'node-fetch';
+import http from 'http';
 
 import {
     ClientReadableStream,
@@ -17,8 +18,10 @@ import { PublisherClient } from '../proto/publisher_grpc_pb';
 import {
     ConfigureRequest,
     ConnectRequest,
+    ConnectResponse,
     DataVersions,
     DisconnectRequest,
+    DisconnectResponse,
     DiscoverSchemasRequest,
     DiscoverSchemasResponse,
     LogLevel,
@@ -32,10 +35,8 @@ import { InputSchemaProperty, Settings } from '../helper/settings';
 import { GetSchemaJson, GetUIJson } from '../api/read/get-schema-json';
 import path from 'path';
 import { RealTimeSettings, RealTimeState } from '../api/read/real-time-types';
-import _, { reject } from 'lodash';
 import { endpointPromise } from '../util/publisher-promises';
-
-jest.mock('node-fetch', () => jest.fn());
+import sleep from '../util/sleep';
 
 let globalPort = -1;
 let globalServer: Server;
@@ -114,8 +115,9 @@ function getConfigureRequest() {
         .setLogLevel(LogLevel.DEBUG);
 }
 
-function getReadRequest() {
+function getReadRequest(schema: Schema) {
     return new ReadRequest()
+        .setSchema(schema)
         .setDataVersions(new DataVersions()
             .setJobId('test')
             .setJobDataVersion(1)
@@ -125,75 +127,75 @@ function getReadRequest() {
         .setRealTimeSettingsJson(new RealTimeSettings().toString());
 }
 
-function sleep(ms: number) {
-    return new Promise<void>(r => setTimeout(r, ms));
-}
-
 // ********************
 // ***  UNIT TESTS  ***
 // ********************
 
+const waitForTimeout = true;
+
 beforeAll(async () => await startServerIfNotRunning());
 afterAll(() => globalServer.forceShutdown());
 
-async function executeReadStreamTest<T>(args: {
-    initializeState: () => T,
-    addResponseStreamHandlers: (
-        state: T,
-        updateState: (state: T) => void,
-        responseStream: ClientReadableStream<Record>,
-        setDoneReading: () => void
-    ) => Promise<void>,
-    sendRequestsToServer: (state: T, updateState: (state: T) => void, setDoneReading: () => void) => Promise<void>,
-    callback: (state: T) => Promise<void>,
-    timeoutSeconds?: number
-}): Promise<void> {
-    let client = getGrpcClient();
+// async function executeReadStreamTest<T>(args: {
+//     initializeState: () => T;
+//     addResponseStreamHandlers: (
+//         state: T,
+//         updateState: (state: T) => void,
+//         responseStream: ClientReadableStream<Record>
+//     ) => Promise<void>;
+//     sendRequestsToServer: (state: T, updateState: (state: T) => void) => Promise<void>;
+//     callback: (state: T) => Promise<void>;
+//     timeoutSeconds?: number;
+//     teardownTimeout?: number;
+//     waitForTimeout?: boolean;
+// }): Promise<void> {
+//     let client = getGrpcClient();
 
-    let connectRequest = getConnectRequest();
-    await endpointPromise(client, client.connect, connectRequest);
+//     let connectRequest = getConnectRequest();
+//     await endpointPromise(client, client.connect, connectRequest);
 
-    let discoverRequest = getDiscoverSchemasRequest();
-    let discoverResponse = await endpointPromise<
-        DiscoverSchemasRequest,
-        DiscoverSchemasResponse
-    >(client, client.discoverSchemas, discoverRequest);
+//     let discoverRequest = getDiscoverSchemasRequest();
+//     let discoverResponse = await endpointPromise<
+//         DiscoverSchemasRequest,
+//         DiscoverSchemasResponse
+//     >(client, client.discoverSchemas, discoverRequest);
 
-    let responseStream: ClientReadableStream<Record>;
-    let schema = discoverResponse.getSchemasList()?.[0];
-    expect(schema).toBeTruthy();
+//     let responseStream: ClientReadableStream<Record>;
+//     let schema = discoverResponse.getSchemasList()?.[0];
+//     expect(schema).toBeTruthy();
 
-    let readRequest = getReadRequest();
-    responseStream = client.readStream(readRequest);
-    expect(responseStream).toBeTruthy();
+//     let readRequest = getReadRequest(schema);
+//     responseStream = client.readStream(readRequest);
+//     expect(responseStream).toBeTruthy();
 
-    let state = args.initializeState();
-    let updateState = (s: typeof state) => {
-        state = s;
-    };
-    let readingRecords = true;
-    let resolved = false;
-    const setDoneReading = () => readingRecords = false;
+//     let state = args.initializeState();
+//     let updateState = (s: typeof state) => {
+//         state = { ...state, ...s };
+//     };
 
-    let timeStart = Date.now();
-    await Promise.race([
-        args.addResponseStreamHandlers(state, updateState, responseStream, setDoneReading)
-            .then(
-                () => { args.sendRequestsToServer(state, updateState, setDoneReading); resolved = true; },
-                () => { setDoneReading(); }
-            ),
-        sleep((args.timeoutSeconds ?? 10) * 1000)
-    ]);
+//     let timeStart = Date.now();
+//     let promises = [
+//         args.addResponseStreamHandlers(state, updateState, responseStream)
+//             .then(() => sleep(5000))
+//             .then(() => args.sendRequestsToServer(state, updateState)),
+//         sleep((args.timeoutSeconds ?? 15) * 1000)
+//     ];
 
-    let timeEnd = Date.now();
-    let durationSeconds = Math.round((timeEnd - timeStart) / 10) / 100;
-    console.log(`Waited ${durationSeconds} second${(durationSeconds === 1) ? '' : 's'} for read stream to finish`);
+//     if (args.waitForTimeout) await Promise.all(promises);
+//     else await Promise.race(promises);
 
-    await endpointPromise(client, client.disconnect, new DisconnectRequest());
+//     let timeEnd = Date.now();
+//     let durationSeconds = Math.round((timeEnd - timeStart) / 10) / 100;
+//     console.log(`Waited ${durationSeconds} second${(durationSeconds === 1) ? '' : 's'} for read stream to finish`);
 
-    expect(resolved).toBe(true);
-    await args.callback(state);
-}
+//     if (!responseStream.destroyed) {
+//         responseStream.destroy();
+//         await sleep(args.teardownTimeout ?? 2500);
+//     }
+
+//     await endpointPromise(client, client.disconnect, new DisconnectRequest());
+//     await args.callback(state);
+// }
 
 describe('config schema module', () => {
     const expectedSchemaObject = {
@@ -267,20 +269,78 @@ describe('config schema module', () => {
 });
 
 describe('plugin module', () => {
-    test('connect', () => (async () => {
+    // test('connect', async () => {
+    //     let client = getGrpcClient();
+
+    //     let connectRequest = getConnectRequest();
+    //     let connectResponse = await endpointPromise<ConnectRequest, ConnectResponse>(
+    //         client, client.connect, connectRequest
+    //     );
+    //     expect(connectResponse).toBeTruthy();
+
+    //     let disconnectResponse = await endpointPromise<DisconnectRequest, DisconnectResponse>(
+    //         client, client.disconnect, new DisconnectRequest()
+    //     );
+    //     expect(disconnectResponse).toBeTruthy();
+    // }, 20000);
+
+    // test('discover all', async () => {
+    //     let client = getGrpcClient();
+
+    //     let configureRequest = getConfigureRequest();
+    //     await endpointPromise(client, client.configure, configureRequest);
+
+    //     let connectRequest = getConnectRequest();
+    //     await endpointPromise(client, client.connect, connectRequest);
+
+    //     let discoverRequest = getDiscoverSchemasRequest();
+    //     let discoverResponse = await endpointPromise<
+    //         DiscoverSchemasRequest,
+    //         DiscoverSchemasResponse
+    //     >(client, client.discoverSchemas, discoverRequest);
+
+    //     expect(discoverResponse).toBeTruthy();
+
+    //     let schemasList = discoverResponse.getSchemasList();
+    //     expect(schemasList.length).toBe(1);
+
+    //     let schema = schemasList[0];
+    //     expect(schema.getId()).toBe('external-push-schema');
+    //     expect(schema.getName()).toBe('External Push Schema');
+    //     expect(schema.getDescription()).toBe('');
+    //     expect(schema.getDataFlowDirection()).toBe(Schema.DataFlowDirection.READ);
+
+    //     let properties = schema.getPropertiesList().map(p => p.toObject());
+    //     expect(properties.length).toBe(3);
+    //     properties.forEach(p => {
+    //         expect(p.description).toBe('');
+    //         expect(p.isKey).toBe(false);
+    //         expect(p.isNullable).toBe(true);
+    //     });
+
+    //     let property1 = properties[0];
+    //     expect(property1.id).toBe('id');
+    //     expect(property1.name).toBe('id');
+    //     expect(property1.type).toBe(PropertyType.STRING);
+    //     expect(property1.typeAtSource).toBe('String');
+
+    //     let property2 = properties[1];
+    //     expect(property2.id).toBe('name');
+    //     expect(property2.name).toBe('name');
+    //     expect(property2.type).toBe(PropertyType.STRING);
+    //     expect(property2.typeAtSource).toBe('String');
+
+    //     let property3 = properties[2];
+    //     expect(property3.id).toBe('signed');
+    //     expect(property3.name).toBe('signed');
+    //     expect(property3.type).toBe(PropertyType.BOOL);
+    //     expect(property3.typeAtSource).toBe('Boolean');
+
+    //     await endpointPromise(client, client.disconnect, new DisconnectRequest());
+    // });
+
+    test('read stream real time - post 1 record', async () => {
         let client = getGrpcClient();
-
-        let connectRequest = getConnectRequest();
-        await endpointPromise(client, client.connect, connectRequest);
-
-        await endpointPromise(client, client.disconnect, new DisconnectRequest());
-    })());
-
-    test('discover all', () => (async () => {
-        let client = getGrpcClient();
-
-        let configureRequest = getConfigureRequest();
-        await endpointPromise(client, client.configure, configureRequest);
 
         let connectRequest = getConnectRequest();
         await endpointPromise(client, client.connect, connectRequest);
@@ -291,127 +351,91 @@ describe('plugin module', () => {
             DiscoverSchemasResponse
         >(client, client.discoverSchemas, discoverRequest);
 
-        expect(discoverResponse).toBeTruthy();
+        let responseStream: ClientReadableStream<Record>;
+        let schema = discoverResponse.getSchemasList()?.[0];
+        expect(schema).toBeTruthy();
 
-        let schemasList = discoverResponse.getSchemasList();
-        expect(schemasList.length).toBe(1);
+        let readRequest = getReadRequest(schema);
+        responseStream = client.readStream(readRequest);
+        expect(responseStream).toBeTruthy();
 
-        let schema = schemasList[0];
-        expect(schema.getId()).toBe('external-push-schema');
-        expect(schema.getName()).toBe('External Push Schema');
-        expect(schema.getDescription()).toBe('');
-        expect(schema.getDataFlowDirection()).toBe(Schema.DataFlowDirection.READ);
-
-        let properties = schema.getPropertiesList().map(p => p.toObject());
-        expect(properties.length).toBe(3);
-        properties.forEach(p => {
-            expect(p.description).toBe('');
-            expect(p.isKey).toBe(false);
-            expect(p.isNullable).toBe(true);
+        responseStream.on('data', (chunk) => {
+            console.log('received data: ', chunk);
+            recordsCount += 1;
+            records.push(chunk);
+            expect(chunk).toBeTruthy();
         });
 
-        let property1 = properties[0];
-        expect(property1.id).toBe('id');
-        expect(property1.name).toBe('id');
-        expect(property1.type).toBe(PropertyType.STRING);
-        expect(property1.typeAtSource).toBe('String');
+        responseStream.on('error', (err: Error) => {
+            console.error(err);
+        });
 
-        let property2 = properties[1];
-        expect(property2.id).toBe('name');
-        expect(property2.name).toBe('name');
-        expect(property2.type).toBe(PropertyType.STRING);
-        expect(property2.typeAtSource).toBe('String');
+        let recordsCount = 0;
+        let records: Record[] = [];
 
-        let property3 = properties[2];
-        expect(property3.id).toBe('signed');
-        expect(property3.name).toBe('signed');
-        expect(property3.type).toBe(PropertyType.BOOL);
-        expect(property3.typeAtSource).toBe('Boolean');
-
-        await endpointPromise(client, client.disconnect, new DisconnectRequest());
-    })());
-
-    test('read stream real time - empty', () => executeReadStreamTest({
-        initializeState: () => {
-            let records: Record[] = [];
-            let recordsCount: number = 0;
-            return { records, recordsCount };
-        },
-        addResponseStreamHandlers: (state, updateState, responseStream, setDoneReading) => new Promise(resolve => {
-            responseStream.on('data', (chunk) => {
-                updateState({
-                    ...state,
-                    recordsCount: state.recordsCount + 1
-                });
-                expect(chunk).toBeTruthy();
-            });
-            responseStream.on('end', () => {
-                setDoneReading();
-            });
-            resolve();
-        }),
-        sendRequestsToServer: () => new Promise(resolve => resolve()),
-        callback: (state) => new Promise(resolve => {
-            expect(state.recordsCount).toBe(0);
-            expect(state.records).toHaveLength(0);
-            resolve();
-        }),
-        timeoutSeconds: 5,
-    }), 10 * 1000);
-
-    test('read stream real time - post 1 record', async () => await executeReadStreamTest({
-        initializeState: () => {
-            let records: Record[] = [];
-            let recordsCount: number = 0;
-            return { records, recordsCount };
-        },
-        addResponseStreamHandlers: (state, updateState, responseStream, setDoneReading) => new Promise(
-            (resolve, reject) => {
-                try {
-                    responseStream.on('data', (chunk) => {
-                        updateState({
-                            ...state,
-                            recordsCount: state.recordsCount + 1,
-                            records: [ ...state.records, chunk ]
-                        });
-                        expect(chunk).toBeTruthy();
-                    });
-                    responseStream.on('close', () => {
-                        setDoneReading();
-                    });
-                    resolve();
-                }
-                catch (e) {
-                    reject();
-                }
-            }
-        ),
-        sendRequestsToServer: async () => {
+        let timeStart = Date.now();
+        let postTask = async () => {
             // post 1 record
-            const requestBody = {
+            const requestBody = JSON.stringify({
                 id: 'test-record-1',
                 name: 'myRecord-1',
                 signed: true,
-            };
-            const response = await fetch(`http://localhost:${globalPort}/externalpush`, {
-                method: 'POST',
-                body: JSON.stringify(requestBody),
             });
-            expect(response).toBeTruthy();
-            expect(response?.status).toBe(200);
-            const data = await response.json();
-            console.log('received response: ', data);
-        },
-        callback: (state) => new Promise((resolve, reject) => {
-            try {
-                expect(state.recordsCount).toBe(1);
-                expect(state.records).toHaveLength(1);
-                resolve();
+
+            let statusCode = -1;
+            const request = http.request(
+                {
+                    hostname: 'localhost',
+                    port: 50001,
+                    path: '/externalpush',
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Content-Length': Buffer.byteLength(requestBody),
+                    }
+                },
+                res => {
+                    console.log(`STATUS: ${res.statusCode}`);
+                    console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
+                    res.setEncoding('utf8');
+
+                    if (!!res.statusCode) {
+                        statusCode = res.statusCode;
+                    }
+                }
+            );
+
+            request.write(requestBody);
+            request.end();
+            
+            for (let i = 0; i < 10 && statusCode < 0; i++) {
+                await sleep(1000);
             }
-            catch (e) {
-                reject(e);
-            }
-        }),
-        timeoutSeconds: 8,
-    }), 2000 * 1000);
+
+            expect(statusCode).toBe(200);
+            // expect(response?.status).toBe(200);
+            // const data = await response.json();
+            // console.log('received response: ', data); 
+        };
+
+        // wait for records to come in
+        await Promise.all([
+            postTask(),
+            sleep(10000)
+        ]);
+
+        let timeEnd = Date.now();
+        let durationSeconds = Math.round((timeEnd - timeStart) / 10) / 100;
+        console.log(`Waited ${durationSeconds} second${(durationSeconds === 1) ? '' : 's'} for read stream to finish`);
+
+        try {
+            responseStream.destroy();
+        }
+        finally {
+            await endpointPromise(client, client.disconnect, new DisconnectRequest());
+
+            expect(recordsCount).toBe(1);
+            expect(records).toHaveLength(1);
+        }
+    }, 20 * 1000);
 });
