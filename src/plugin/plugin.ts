@@ -113,6 +113,59 @@ async function connectImpl(request: ConnectRequest): Promise<ConnectResponse> {
     return response;
 }
 
+function buildRecordMap(
+    call: ServerWritableStream<ReadRequest, Record>,
+    data: any
+): Dictionary<any> {
+    if (data === null || data === undefined) {
+        throw new Error("Cannot build record: Incoming request data is null or undefined");
+    }
+
+    // get input schema
+    let schema = call.request.getSchema();
+    if (_.isNil(schema)) {
+        throw new Error("Cannot build record: Input schema is undefined");
+    }
+
+    // build record
+    logger.Info('Building record...');
+    let recordMap: Dictionary<any> = {};
+    for (let i = 0; i < schema.getPropertiesList().length; i++) {
+        const property = schema.getPropertiesList()[i];
+        const propId = property.getId();
+        try {
+            switch (property.getType()) {
+                case PropertyType.STRING:
+                case PropertyType.TEXT:
+                case PropertyType.DECIMAL:
+                    var lookupValue = data?.[propId];
+                    if (lookupValue === undefined || lookupValue === null) {
+                        recordMap[propId] = null;
+                    }
+                    else {
+                        recordMap[propId] = `${lookupValue}`;
+                    }
+                    
+                    break;
+                default:
+                    recordMap[propId] = data?.[propId] ?? null;
+                    break;
+            }
+        }
+        catch (e: any) {
+            if (_.isError(e)) {
+                logger.Error(e, `No column with property id: ${propId}\n` + e.message);
+            }
+            else {
+                logger.Error(e, `No column with property id: ${propId}\n${e}`);
+            }
+            recordMap[propId] = null;
+        }
+    }
+
+    return recordMap;
+}
+
 export class Plugin implements IPublisherServer {
 
     [name: string]: import("@grpc/grpc-js").UntypedHandleCall;
@@ -219,61 +272,17 @@ export class Plugin implements IPublisherServer {
             // Posting data to the agent
             app.post("/externalpush", (req, res, next) => {
                 try {
-                    // get input data
                     let data = req.body;
-                    logger.Info(`Received request: ${JSON.stringify(data, null, 2)}`);
-                    if (data === null || data === undefined) {
-                        throw new Error("Cannot start read stream: Incoming request data is null or undefined");
-                    }
+                    logger.Info(`Received post request: ${JSON.stringify(data, null, 2)}`); // TODO: Remove when done testing
 
-                    // get input schema
-                    let schema = call.request.getSchema();
-                    if (_.isNil(schema)) {
-                        throw new Error("Cannot start read stream: Input schema is undefined");
-                    }
-
-                    // build record
-                    logger.Info('Building record...');
-                    let recordMap: Dictionary<any> = {};
-                    for (let i = 0; i < schema.getPropertiesList().length; i++) {
-                        const property = schema.getPropertiesList()[i];
-                        const propId = property.getId();
-                        try {
-                            switch (property.getType()) {
-                                case PropertyType.STRING:
-                                case PropertyType.TEXT:
-                                case PropertyType.DECIMAL:
-                                    var lookupValue = data?.[propId];
-                                    if (lookupValue === undefined || lookupValue === null) {
-                                        recordMap[propId] = null;
-                                    }
-                                    else {
-                                        recordMap[propId] = `${lookupValue}`;
-                                    }
-                                    
-                                    break;
-                                default:
-                                    recordMap[propId] = data?.[propId] ?? null;
-                                    break;
-                            }
-                        }
-                        catch (e: any) {
-                            if (_.isError(e)) {
-                                logger.Error(e, `No column with property id: ${propId}\n` + e.message);
-                            }
-                            else {
-                                logger.Error(e, `No column with property id: ${propId}\n${e}`);
-                            }
-                            recordMap[propId] = null;
-                        }
-                    }
+                    const recordMap = buildRecordMap(call, data);
 
                     let record = new Record();
                     record.setAction(Record.Action.UPSERT);
                     record.setDataJson(JSON.stringify(recordMap));
 
                     // upload record to agent
-                    logger.Info(`Sending record: ${JSON.stringify(record.toObject())}`);
+                    logger.Info(`Sending record: ${JSON.stringify(record.toObject())}`); // TODO: Remove when done testing
                     call.write(record);
 
                     // send response to api request
@@ -286,10 +295,32 @@ export class Plugin implements IPublisherServer {
                 }
             });
 
-            // // Deleting data from the agent
-            // app.delete("/externalpush", (req, res, next) => {
-                
-            // });
+            // Deleting data from the agent
+            app.delete("/externalpush", (req, res, next) => {
+                try {
+                    // get input data
+                    let data = req.body;
+                    logger.Info(`Received delete request: ${JSON.stringify(data, null, 2)}`); // TODO: Remove when done testing
+                    
+                    const recordMap = buildRecordMap(call, data);
+
+                    let record = new Record();
+                    record.setAction(Record.Action.DELETE);
+                    record.setDataJson(JSON.stringify(recordMap));
+
+                    // upload record to agent
+                    logger.Info(`Sending record: ${JSON.stringify(record.toObject())}`); // TODO: Remove when done testing
+                    call.write(record);
+
+                    // send response to api request
+                    res.sendStatus(200);
+                }
+                catch (error: any) {
+                    logger.Error(error);
+                    res.sendStatus(500);
+                    next(error);
+                }
+            });
 
             //InjectAuthenticationMiddleware(app);
 

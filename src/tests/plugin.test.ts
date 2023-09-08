@@ -1,4 +1,4 @@
-import _ from 'lodash';
+import _, { Dictionary } from 'lodash';
 import { describe, expect, test } from '@jest/globals';
 import http from 'http';
 
@@ -131,73 +131,13 @@ function getReadRequest(schema: Schema) {
 // ***  UNIT TESTS  ***
 // ********************
 
-const waitForTimeout = true;
+beforeAll(/* SETUP */ async () => await startServerIfNotRunning());
+afterAll(/* CLEANUP */ () => globalServer.forceShutdown());
 
-beforeAll(async () => await startServerIfNotRunning());
-afterAll(() => globalServer.forceShutdown());
-
-// async function executeReadStreamTest<T>(args: {
-//     initializeState: () => T;
-//     addResponseStreamHandlers: (
-//         state: T,
-//         updateState: (state: T) => void,
-//         responseStream: ClientReadableStream<Record>
-//     ) => Promise<void>;
-//     sendRequestsToServer: (state: T, updateState: (state: T) => void) => Promise<void>;
-//     callback: (state: T) => Promise<void>;
-//     timeoutSeconds?: number;
-//     teardownTimeout?: number;
-//     waitForTimeout?: boolean;
-// }): Promise<void> {
-//     let client = getGrpcClient();
-
-//     let connectRequest = getConnectRequest();
-//     await endpointPromise(client, client.connect, connectRequest);
-
-//     let discoverRequest = getDiscoverSchemasRequest();
-//     let discoverResponse = await endpointPromise<
-//         DiscoverSchemasRequest,
-//         DiscoverSchemasResponse
-//     >(client, client.discoverSchemas, discoverRequest);
-
-//     let responseStream: ClientReadableStream<Record>;
-//     let schema = discoverResponse.getSchemasList()?.[0];
-//     expect(schema).toBeTruthy();
-
-//     let readRequest = getReadRequest(schema);
-//     responseStream = client.readStream(readRequest);
-//     expect(responseStream).toBeTruthy();
-
-//     let state = args.initializeState();
-//     let updateState = (s: typeof state) => {
-//         state = { ...state, ...s };
-//     };
-
-//     let timeStart = Date.now();
-//     let promises = [
-//         args.addResponseStreamHandlers(state, updateState, responseStream)
-//             .then(() => sleep(5000))
-//             .then(() => args.sendRequestsToServer(state, updateState)),
-//         sleep((args.timeoutSeconds ?? 15) * 1000)
-//     ];
-
-//     if (args.waitForTimeout) await Promise.all(promises);
-//     else await Promise.race(promises);
-
-//     let timeEnd = Date.now();
-//     let durationSeconds = Math.round((timeEnd - timeStart) / 10) / 100;
-//     console.log(`Waited ${durationSeconds} second${(durationSeconds === 1) ? '' : 's'} for read stream to finish`);
-
-//     if (!responseStream.destroyed) {
-//         responseStream.destroy();
-//         await sleep(args.teardownTimeout ?? 2500);
-//     }
-
-//     await endpointPromise(client, client.disconnect, new DisconnectRequest());
-//     await args.callback(state);
-// }
+beforeEach(async () => await sleep(2000));
 
 describe('config schema module', () => {
+    // SETUP
     const expectedSchemaObject = {
         "type": "object",
         "properties": {
@@ -250,96 +190,288 @@ describe('config schema module', () => {
     };
 
     test('getSchemaJson', () => (async () => {
+        // ACT
         let schemaJson = await GetSchemaJson();
-        expect(schemaJson).toBeTruthy();
-
         let actual = JSON.stringify(JSON.parse(schemaJson));
         let expected = JSON.stringify(expectedSchemaObject);
+
+        // ASSERT
         expect(actual).toBe(expected);
     })());
 
     test('getUIJson', () => (async () => {
+        // ACT
         let schemaJson = await GetUIJson();
-        expect(schemaJson).toBeTruthy();
-
         let actual = JSON.stringify(JSON.parse(schemaJson));
         let expected = JSON.stringify(expectedUIObject);
+
+        // ASSERT
         expect(actual).toBe(expected);
     })());
 });
 
 describe('plugin module', () => {
-    // test('connect', async () => {
-    //     let client = getGrpcClient();
+    test('connect', async () => {
+        // SETUP
+        let client = getGrpcClient();
 
-    //     let connectRequest = getConnectRequest();
-    //     let connectResponse = await endpointPromise<ConnectRequest, ConnectResponse>(
-    //         client, client.connect, connectRequest
-    //     );
-    //     expect(connectResponse).toBeTruthy();
+        // 1. Connect
+        //   - ACT
+        let connectRequest = getConnectRequest();
+        let connectResponse = await endpointPromise<ConnectRequest, ConnectResponse>(
+            client, client.connect, connectRequest
+        );
+        //   - ASSERT
+        expect(connectResponse).toBeTruthy();
 
-    //     let disconnectResponse = await endpointPromise<DisconnectRequest, DisconnectResponse>(
-    //         client, client.disconnect, new DisconnectRequest()
-    //     );
-    //     expect(disconnectResponse).toBeTruthy();
-    // }, 20000);
+        // 2. Disconnect
+        //   - ACT/CLEANUP
+        let disconnectResponse = await endpointPromise<DisconnectRequest, DisconnectResponse>(
+            client, client.disconnect, new DisconnectRequest()
+        );
+        //   - ASSERT
+        expect(disconnectResponse).toBeTruthy();
+    }, 20000);
 
-    // test('discover all', async () => {
-    //     let client = getGrpcClient();
+    test('discover all', async () => {
+        // SETUP
+        let client = getGrpcClient();
 
-    //     let configureRequest = getConfigureRequest();
-    //     await endpointPromise(client, client.configure, configureRequest);
+        let configureRequest = getConfigureRequest();
+        await endpointPromise(client, client.configure, configureRequest);
 
-    //     let connectRequest = getConnectRequest();
-    //     await endpointPromise(client, client.connect, connectRequest);
+        let connectRequest = getConnectRequest();
+        await endpointPromise(client, client.connect, connectRequest);
 
-    //     let discoverRequest = getDiscoverSchemasRequest();
-    //     let discoverResponse = await endpointPromise<
-    //         DiscoverSchemasRequest,
-    //         DiscoverSchemasResponse
-    //     >(client, client.discoverSchemas, discoverRequest);
+        // ACT
+        let discoverRequest = getDiscoverSchemasRequest();
+        let discoverResponse = await endpointPromise<
+            DiscoverSchemasRequest,
+            DiscoverSchemasResponse
+        >(client, client.discoverSchemas, discoverRequest);
 
-    //     expect(discoverResponse).toBeTruthy();
+        // ASSERT
+        expect(discoverResponse).toBeTruthy();
 
-    //     let schemasList = discoverResponse.getSchemasList();
-    //     expect(schemasList.length).toBe(1);
+        let schemasList = discoverResponse.getSchemasList();
+        expect(schemasList.length).toBe(1);
 
-    //     let schema = schemasList[0];
-    //     expect(schema.getId()).toBe('external-push-schema');
-    //     expect(schema.getName()).toBe('External Push Schema');
-    //     expect(schema.getDescription()).toBe('');
-    //     expect(schema.getDataFlowDirection()).toBe(Schema.DataFlowDirection.READ);
+        let schema = schemasList[0];
+        expect(schema.getId()).toBe('external-push-schema');
+        expect(schema.getName()).toBe('External Push Schema');
+        expect(schema.getDescription()).toBe('');
+        expect(schema.getDataFlowDirection()).toBe(Schema.DataFlowDirection.READ);
 
-    //     let properties = schema.getPropertiesList().map(p => p.toObject());
-    //     expect(properties.length).toBe(3);
-    //     properties.forEach(p => {
-    //         expect(p.description).toBe('');
-    //         expect(p.isKey).toBe(false);
-    //         expect(p.isNullable).toBe(true);
-    //     });
+        let properties = schema.getPropertiesList().map(p => p.toObject());
+        expect(properties.length).toBe(3);
+        properties.forEach(p => {
+            expect(p.description).toBe('');
+            expect(p.isKey).toBe(false);
+            expect(p.isNullable).toBe(true);
+        });
 
-    //     let property1 = properties[0];
-    //     expect(property1.id).toBe('id');
-    //     expect(property1.name).toBe('id');
-    //     expect(property1.type).toBe(PropertyType.STRING);
-    //     expect(property1.typeAtSource).toBe('String');
+        let property1 = properties[0];
+        expect(property1.id).toBe('id');
+        expect(property1.name).toBe('id');
+        expect(property1.type).toBe(PropertyType.STRING);
+        expect(property1.typeAtSource).toBe('String');
 
-    //     let property2 = properties[1];
-    //     expect(property2.id).toBe('name');
-    //     expect(property2.name).toBe('name');
-    //     expect(property2.type).toBe(PropertyType.STRING);
-    //     expect(property2.typeAtSource).toBe('String');
+        let property2 = properties[1];
+        expect(property2.id).toBe('name');
+        expect(property2.name).toBe('name');
+        expect(property2.type).toBe(PropertyType.STRING);
+        expect(property2.typeAtSource).toBe('String');
 
-    //     let property3 = properties[2];
-    //     expect(property3.id).toBe('signed');
-    //     expect(property3.name).toBe('signed');
-    //     expect(property3.type).toBe(PropertyType.BOOL);
-    //     expect(property3.typeAtSource).toBe('Boolean');
+        let property3 = properties[2];
+        expect(property3.id).toBe('signed');
+        expect(property3.name).toBe('signed');
+        expect(property3.type).toBe(PropertyType.BOOL);
+        expect(property3.typeAtSource).toBe('Boolean');
 
-    //     await endpointPromise(client, client.disconnect, new DisconnectRequest());
-    // });
+        // CLEANUP
+        await endpointPromise(client, client.disconnect, new DisconnectRequest());
+    });
+
+    type MockRecordData = {
+        id: string;
+        name: string;
+        signed: boolean;
+    };
+
+    // use type guards instead of blind type casts
+    const isMockRecordData = (target: any): target is MockRecordData => {
+        if (!_.isString(target['id'])) return false;
+        if (!_.isString(target['name'])) return false;
+        if (!_.isBoolean(target['signed'])) return false;
+
+        const keys = _.keys(target);
+        if (keys.length !== 3) return false;
+
+        return true;
+    };
+
+    const expectMockRecordData = (target: any): target is MockRecordData => {
+        const isMatch = isMockRecordData(target);
+        expect(isMatch).toBe(true);
+        return isMatch;
+    };
 
     test('read stream real time - post 1 record', async () => {
+        // SETUP
+        const expectedRecord: MockRecordData = {
+            id: 'test-record-1',
+            name: 'myRecord-1',
+            signed: true,
+        };
+
+        let client = getGrpcClient();
+
+        let connectRequest = getConnectRequest();
+        await endpointPromise(client, client.connect, connectRequest);
+
+        let discoverRequest = getDiscoverSchemasRequest();
+        let discoverResponse = await endpointPromise<
+            DiscoverSchemasRequest,
+            DiscoverSchemasResponse
+        >(client, client.discoverSchemas, discoverRequest);
+
+        let responseStream: ClientReadableStream<Record>;
+        let schema = discoverResponse.getSchemasList()[0];
+
+        let readRequest = getReadRequest(schema);
+
+        try {
+            responseStream = client.readStream(readRequest);
+        }
+        catch (err) {
+            console.error('Error in read stream: ', err);
+            throw err;
+        }
+
+        // ACT
+        let statusCode = -1;
+        let actualRecordsCount = 0;
+        const actualRecords: Record[] = [];
+
+        responseStream.on('data', (chunk) => {
+            actualRecordsCount += 1;
+            actualRecords.push(chunk);
+            expect(chunk).toBeTruthy();
+        });
+
+        responseStream.on('error', (err: Error) => {
+            if (!err.message.includes('CANCELLED: Call cancelled')) {
+                console.log(err);
+            }
+        });
+
+        const timeStart = Date.now();
+        const postTask = async () => {
+            // post 1 record
+            const requestBody = JSON.stringify(expectedRecord);
+
+            const request = http.request(
+                {
+                    hostname: 'localhost',
+                    port: 50001,
+                    path: '/externalpush',
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Content-Length': Buffer.byteLength(requestBody),
+                    },
+                    timeout: 15000
+                },
+                res => {
+                    console.log(`Received Status: ${res.statusCode}`);
+                    res.setEncoding('utf8');
+
+                    if (!!res.statusCode) {
+                        statusCode = res.statusCode;
+                    }
+                }
+            );
+
+            request.write(requestBody);
+            request.end();
+            
+            for (let i = 0; i < 15 && statusCode < 0; i++) {
+                await sleep(1000);
+            }
+        };
+
+        // wait for records to come in
+        await sleep(5000).then(postTask);
+
+        const timeEnd = Date.now();
+        const durationSeconds = Math.round((timeEnd - timeStart) / 10) / 100;
+        console.log(`Waited ${durationSeconds} second${(durationSeconds === 1) ? '' : 's'} for read stream to finish`);
+
+        // ASSERT
+        expect(statusCode).toBe(200);
+        expect(actualRecordsCount).toBe(1);
+
+        const actualRecord = actualRecords?.[0];
+        expect(actualRecord).toBeTruthy();
+
+        const action = actualRecord.getAction();
+        expect(action).toBe(Record.Action.UPSERT);
+
+        let data = JSON.parse(actualRecord.getDataJson());
+        if (expectMockRecordData(data)) { // else, error
+            console.log(`Record Data JSON: ${JSON.stringify(data, null, 2)}`);
+            expect(data.id).toBe(expectedRecord.id);
+            expect(data.name).toBe(expectedRecord.name);
+            expect(data.signed).toBe(expectedRecord.signed);
+        }
+
+        // CLEANUP
+        responseStream.destroy();
+        await sleep(2000);
+
+        try {
+            await endpointPromise(client, client.disconnect, new DisconnectRequest());
+        }
+        catch (err) {
+            console.warn(`Error when attempting to disconnect:\n${err}`);
+        }
+    }, 20 * 1000);
+
+    test('read stream real time - post 5 records', async () => {
+        // SETUP
+        const expectedRecords: MockRecordData[] = [
+            {
+                id: 'test-record-001',
+                name: 'Joe Sanderson',
+                signed: false,
+            },
+            {
+                id: 'test-record-002',
+                name: 'Aunt Slappy',
+                signed: true,
+            },
+            {
+                id: 'test-record-003',
+                name: 'Indiana Jones',
+                signed: true,
+            },
+            {
+                id: 'test-record-004',
+                name: 'Luke Skywalker',
+                signed: true,
+            },
+            {
+                id: 'test-record-005',
+                name: 'Uncle Sam',
+                signed: false,
+            },
+        ];
+
+        const expectedRecordsMap: Dictionary<MockRecordData> = {};
+        expectedRecords.forEach(r => {
+            expectedRecordsMap[r.id] = r;
+        });
+
         let client = getGrpcClient();
 
         let connectRequest = getConnectRequest();
@@ -353,34 +485,37 @@ describe('plugin module', () => {
 
         let responseStream: ClientReadableStream<Record>;
         let schema = discoverResponse.getSchemasList()?.[0];
-        expect(schema).toBeTruthy();
 
         let readRequest = getReadRequest(schema);
-        responseStream = client.readStream(readRequest);
-        expect(responseStream).toBeTruthy();
+
+        try {
+            responseStream = client.readStream(readRequest);
+        }
+        catch (err) {
+            console.error('Error in read stream: ', err);
+            throw err;
+        }
+
+        // ACT
+        let actualRecordsCount = 0;
+        let actualRecords: Record[] = [];
 
         responseStream.on('data', (chunk) => {
-            console.log('received data: ', chunk);
-            recordsCount += 1;
-            records.push(chunk);
-            expect(chunk).toBeTruthy();
+            actualRecordsCount += 1;
+            actualRecords.push(chunk);
+            console.log(`Received 1 record, at ${actualRecordsCount}`);
         });
 
         responseStream.on('error', (err: Error) => {
-            console.error(err);
+            if (!err.message.includes('CANCELLED: Call cancelled')) {
+                console.log(err);
+            }
         });
 
-        let recordsCount = 0;
-        let records: Record[] = [];
-
         let timeStart = Date.now();
-        let postTask = async () => {
+        let postTask = async (data: MockRecordData) => {
             // post 1 record
-            const requestBody = JSON.stringify({
-                id: 'test-record-1',
-                name: 'myRecord-1',
-                signed: true,
-            });
+            const requestBody = JSON.stringify(data);
 
             let statusCode = -1;
             const request = http.request(
@@ -392,11 +527,11 @@ describe('plugin module', () => {
                     headers: {
                         'Content-Type': 'application/json',
                         'Content-Length': Buffer.byteLength(requestBody),
-                    }
+                    },
+                    timeout: 15000
                 },
                 res => {
-                    console.log(`STATUS: ${res.statusCode}`);
-                    console.log(`HEADERS: ${JSON.stringify(res.headers)}`);
+                    console.log(`Received Status: ${res.statusCode}`);
                     res.setEncoding('utf8');
 
                     if (!!res.statusCode) {
@@ -408,34 +543,221 @@ describe('plugin module', () => {
             request.write(requestBody);
             request.end();
             
-            for (let i = 0; i < 10 && statusCode < 0; i++) {
+            for (let i = 0; i < 15 && statusCode < 0; i++) {
                 await sleep(1000);
             }
 
-            expect(statusCode).toBe(200);
-            // expect(response?.status).toBe(200);
-            // const data = await response.json();
-            // console.log('received response: ', data); 
+            if (statusCode !== 200) throw new Error(`Expected status code 200; received code ${statusCode}`);
         };
 
         // wait for records to come in
-        await Promise.all([
-            postTask(),
-            sleep(10000)
-        ]);
+        await sleep(5000);
+
+        for (let i = 0; i < expectedRecords.length; i++) {
+            const record = expectedRecords[i];
+            postTask(record);
+            await sleep(500);
+        }
 
         let timeEnd = Date.now();
         let durationSeconds = Math.round((timeEnd - timeStart) / 10) / 100;
         console.log(`Waited ${durationSeconds} second${(durationSeconds === 1) ? '' : 's'} for read stream to finish`);
 
-        try {
-            responseStream.destroy();
-        }
-        finally {
-            await endpointPromise(client, client.disconnect, new DisconnectRequest());
+        // ASSERT
+        expect(actualRecordsCount).toBe(expectedRecords.length);
 
-            expect(recordsCount).toBe(1);
-            expect(records).toHaveLength(1);
+        const actualRecordIds: string[] = [];
+        for (let i = 0; i < actualRecords.length; i++) {
+            const actualRecord = actualRecords[i];
+            expect(actualRecord).toBeTruthy();
+
+            const action = actualRecord.getAction();
+            expect(action).toBe(Record.Action.UPSERT);
+
+            let data = JSON.parse(actualRecord.getDataJson());
+            if (expectMockRecordData(data)) { // else, error
+                console.log(`Record Data JSON: ${JSON.stringify(data, null, 2)}`);
+                const expectedRecord = expectedRecordsMap[data.id];
+                expect(expectedRecord).toBeTruthy();
+
+                expect(data.id).toBe(expectedRecord.id);
+                expect(data.name).toBe(expectedRecord.name);
+                expect(data.signed).toBe(expectedRecord.signed);
+
+                if (!actualRecordIds.includes(data.id)) {
+                    actualRecordIds.push(data.id);
+                }
+            }
         }
-    }, 20 * 1000);
+
+        expect(actualRecordIds.length).toBe(expectedRecords.length);
+
+        // CLEANUP
+        responseStream.destroy();
+        await sleep(2000);
+
+        try {
+            await endpointPromise(client, client.disconnect, new DisconnectRequest());
+        }
+        catch (err) {
+            console.warn(`Error when attempting to disconnect:\n${err}`);
+        }
+    }, 30 * 1000);
+
+    test('read stream real time - delete 3 records', async () => {
+        // SETUP
+        const expectedRecords: MockRecordData[] = [
+            {
+                id: 'test-record-002',
+                name: 'Aunt Slappy',
+                signed: true,
+            },
+            {
+                id: 'test-record-004',
+                name: 'Luke Skywalker',
+                signed: true,
+            },
+            {
+                id: 'test-record-005',
+                name: 'Uncle Sam',
+                signed: false,
+            },
+        ];
+
+        const expectedRecordsMap: Dictionary<MockRecordData> = {};
+        expectedRecords.forEach(r => {
+            expectedRecordsMap[r.id] = r;
+        });
+
+        let client = getGrpcClient();
+
+        let connectRequest = getConnectRequest();
+        await endpointPromise(client, client.connect, connectRequest);
+
+        let discoverRequest = getDiscoverSchemasRequest();
+        let discoverResponse = await endpointPromise<
+            DiscoverSchemasRequest,
+            DiscoverSchemasResponse
+        >(client, client.discoverSchemas, discoverRequest);
+
+        let responseStream: ClientReadableStream<Record>;
+        let schema = discoverResponse.getSchemasList()?.[0];
+
+        let readRequest = getReadRequest(schema);
+
+        try {
+            responseStream = client.readStream(readRequest);
+        }
+        catch (err) {
+            console.error('Error in read stream: ', err);
+            throw err;
+        }
+
+        // ACT
+        let actualRecordsCount = 0;
+        let actualRecords: Record[] = [];
+
+        responseStream.on('data', (chunk) => {
+            actualRecordsCount += 1;
+            actualRecords.push(chunk);
+            console.log(`Received 1 record, at ${actualRecordsCount}`);
+        });
+
+        responseStream.on('error', (err: Error) => {
+            if (!err.message.includes('CANCELLED: Call cancelled')) {
+                console.log(err);
+            }
+        });
+
+        let timeStart = Date.now();
+        let deleteTask = async (data: MockRecordData) => {
+            // delete 1 record
+            const requestBody = JSON.stringify(data);
+
+            let statusCode = -1;
+            const request = http.request(
+                {
+                    hostname: 'localhost',
+                    port: 50001,
+                    path: '/externalpush',
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Content-Length': Buffer.byteLength(requestBody),
+                    },
+                    timeout: 15000
+                },
+                res => {
+                    console.log(`Received Status: ${res.statusCode}`);
+                    res.setEncoding('utf8');
+
+                    if (!!res.statusCode) {
+                        statusCode = res.statusCode;
+                    }
+                }
+            );
+
+            request.write(requestBody);
+            request.end();
+            
+            for (let i = 0; i < 15 && statusCode < 0; i++) {
+                await sleep(1000);
+            }
+
+            if (statusCode !== 200) throw new Error(`Expected status code 200; received code ${statusCode}`);
+        };
+
+        // wait for records to come in
+        await sleep(5000);
+
+        for (let i = 0; i < expectedRecords.length; i++) {
+            const record = expectedRecords[i];
+            deleteTask(record);
+            await sleep(500);
+        }
+
+        let timeEnd = Date.now();
+        let durationSeconds = Math.round((timeEnd - timeStart) / 10) / 100;
+        console.log(`Waited ${durationSeconds} second${(durationSeconds === 1) ? '' : 's'} for read stream to finish`);
+
+        // ASSERT
+        expect(actualRecordsCount).toBe(expectedRecords.length);
+
+        const actualRecordIds: string[] = [];
+        for (let i = 0; i < actualRecords.length; i++) {
+            const actualRecord = actualRecords[i];
+            expect(actualRecord).toBeTruthy();
+
+            const action = actualRecord.getAction();
+            expect(action).toBe(Record.Action.DELETE);
+
+            let data = JSON.parse(actualRecord.getDataJson());
+            if (expectMockRecordData(data)) { // else, error
+                console.log(`Record Data JSON: ${JSON.stringify(data, null, 2)}`);
+                const expectedRecord = expectedRecordsMap[data.id];
+                expect(expectedRecord).toBeTruthy();
+
+                expect(data.id).toBe(expectedRecord.id);
+                expect(data.name).toBe(expectedRecord.name);
+                expect(data.signed).toBe(expectedRecord.signed);
+
+                if (!actualRecordIds.includes(data.id)) {
+                    actualRecordIds.push(data.id);
+                }
+            }
+        }
+
+        expect(actualRecordIds.length).toBe(expectedRecords.length);
+
+        // CLEANUP
+        responseStream.destroy();
+        await sleep(2000);
+
+        try {
+            await endpointPromise(client, client.disconnect, new DisconnectRequest());
+        }
+        catch (err) {
+            console.warn(`Error when attempting to disconnect:\n${err}`);
+        }
+    }, 30 * 1000);
 });
