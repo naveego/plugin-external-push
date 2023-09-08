@@ -257,6 +257,8 @@ export class Plugin implements IPublisherServer {
     }
 
     async readStream(call: ServerWritableStream<ReadRequest, Record>) {
+        logger.Info("Starting read stream...");
+
         // Keep call open until stream is destroyed
         var realTimeSettingsJson = call.request.getRealTimeSettingsJson();
         if (realTimeSettingsJson) {
@@ -273,7 +275,7 @@ export class Plugin implements IPublisherServer {
             app.post("/externalpush", (req, res, next) => {
                 try {
                     let data = req.body;
-                    logger.Info(`Received post request: ${JSON.stringify(data, null, 2)}`); // TODO: Remove when done testing
+                    logger.Info('Received post request');
 
                     const recordMap = buildRecordMap(call, data);
 
@@ -282,14 +284,14 @@ export class Plugin implements IPublisherServer {
                     record.setDataJson(JSON.stringify(recordMap));
 
                     // upload record to agent
-                    logger.Info(`Sending record: ${JSON.stringify(record.toObject())}`); // TODO: Remove when done testing
+                    logger.Info('Sent record for Upsert');
                     call.write(record);
 
                     // send response to api request
                     res.sendStatus(200);
                 }
                 catch (error: any) {
-                    logger.Error(error);
+                    logger.Error(error, 'Post request resulted in an error');
                     res.sendStatus(500);
                     next(error);
                 }
@@ -300,7 +302,7 @@ export class Plugin implements IPublisherServer {
                 try {
                     // get input data
                     let data = req.body;
-                    logger.Info(`Received delete request: ${JSON.stringify(data, null, 2)}`); // TODO: Remove when done testing
+                    logger.Info('Received delete request');
                     
                     const recordMap = buildRecordMap(call, data);
 
@@ -309,14 +311,14 @@ export class Plugin implements IPublisherServer {
                     record.setDataJson(JSON.stringify(recordMap));
 
                     // upload record to agent
-                    logger.Info(`Sending record: ${JSON.stringify(record.toObject())}`); // TODO: Remove when done testing
                     call.write(record);
+                    logger.Info('Sent record for Delete');
 
                     // send response to api request
                     res.sendStatus(200);
                 }
                 catch (error: any) {
-                    logger.Error(error);
+                    logger.Error(error, 'Delete request resulted in an error');
                     res.sendStatus(500);
                     next(error);
                 }
@@ -325,7 +327,7 @@ export class Plugin implements IPublisherServer {
             //InjectAuthenticationMiddleware(app);
 
             app.on('exit', () => {
-                logger.Info(`input server stopped, exitting...`);
+                logger.Info(`input server stopped, ending read stream...`);
 
                 try {
                     call.end();
