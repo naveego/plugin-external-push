@@ -4,7 +4,21 @@
   "description": "Publisher which connects to allows data to be pushed into the system",
   "main": "src/main.ts",
   "scripts": {
-    "test": "jest"
+    "test": "jest",
+    "compile": "npx tsc",
+    "build-linux": "mkdir -p dist/linux && npx pkg --targets node16-linux-x64 --output dist/linux/plugin-external-push build/src/main.js",
+    "build-osx": "mkdir -p dist/osx && npx pkg --targets node16-macos-x64 --output dist/osx/plugin-external-push build/src/main.js",
+    "build-win": "mkdir -p dist/win && npx pkg --targets node16-win-x64 --output dist/win/plugin-external-push build/src/main.js",
+    "build": "npm run compile && npm run build-linux && npm run build-osx && npm run build-win",
+    "copy-linux": "mkdir -p dist/linux && cp LICENSE dist/linux/LICENSE && cp manifest.json dist/linux/manifest.json && cp icon.png dist/linux/icon.png",
+    "copy-osx": "mkdir -p dist/osx && cp LICENSE dist/osx/LICENSE && cp manifest.json dist/osx/manifest.json && cp icon.png dist/osx/icon.png",
+    "copy-win": "mkdir -p dist/win && cp LICENSE dist/win/LICENSE && cp manifest.json dist/win/manifest.json && cp icon.png dist/win/icon.png",
+    "copy": "npm run copy-linux && npm run copy-osx && npm run copy-win",
+    "zip-linux": "mkdir -p dist/publish && zip dist/publish/plugin-external-push_1.0.0_linux_amd64.zip dist/linux/*",
+    "zip-osx": "mkdir -p dist/publish && zip -j dist/publish/plugin-external-push_1.0.0_osx_amd64.zip dist/osx/*",
+    "zip-win": "mkdir -p dist/publish && zip -j dist/publish/plugin-external-push_1.0.0_win_amd64.zip dist/win/*",
+    "zip": "npm run zip-linux && npm run zip-osx && npm run zip-win",
+    "publish": "npm run build && npm run copy && npm run zip"
   },
   "author": "Aunalytics Inc.",
   "license": "MIT",
@@ -15,7 +29,8 @@
     "fix-esm": "^1.0.1",
     "google-protobuf": "^3.21.2",
     "lodash": "^4.17.21",
-    "nodemon": "^3.0.1"
+    "nodemon": "^3.0.1",
+    "pkg": "^5.8.1"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.23.1",
@@ -31,6 +46,6 @@
     "ts-jest": "^29.1.1",
     "ts-node": "^10.9.1",
     "tsc": "^2.0.4",
-    "typescript": "^5.1.6"
+    "typescript": "^5.2.2"
   }
 }
