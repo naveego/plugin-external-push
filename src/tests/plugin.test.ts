@@ -1,6 +1,7 @@
 import _, { Dictionary } from 'lodash';
 import { describe, expect, test } from '@jest/globals';
 import http from 'http';
+import * as fs from 'fs';
 
 import {
     ClientReadableStream,
@@ -106,11 +107,10 @@ function getDiscoverSchemasRequest() {
 }
 
 function getConfigureRequest() {
-    let makePath = (folderName: string) => path.join('..', '..', '..', folderName);
     return new ConfigureRequest()
-        .setTemporaryDirectory(makePath('Temp'))
-        .setPermanentDirectory(makePath('Perm'))
-        .setLogDirectory(makePath('Logs'))
+        .setTemporaryDirectory('agent-directories/Temp')
+        .setPermanentDirectory('agent-directories/Perm')
+        .setLogDirectory('agent-directories/Logs')
         .setDataVersions(new DataVersions())
         .setLogLevel(LogLevel.DEBUG);
 }
@@ -231,7 +231,22 @@ describe('plugin module', () => {
         );
         //   - ASSERT
         expect(disconnectResponse).toBeTruthy();
-    }, 20000);
+    }, 5000);
+
+    test('configure', async () => {
+        // SETUP
+        let client = getGrpcClient();
+
+        // ACT
+        let configureRequest = getConfigureRequest();
+        await endpointPromise(client, client.configure, configureRequest);
+
+        // ASSERT
+        const pathExists = (folderName: string) => fs.existsSync(path.join(__dirname, '..', '..', folderName));
+        expect(pathExists('agent-directories/Logs')).toBe(true);
+        expect(pathExists('agent-directories/Perm')).toBe(true);
+        expect(pathExists('agent-directories/Temp')).toBe(true);
+    }, 5000);
 
     test('discover all', async () => {
         // SETUP
@@ -290,7 +305,7 @@ describe('plugin module', () => {
 
         // CLEANUP
         await endpointPromise(client, client.disconnect, new DisconnectRequest());
-    });
+    }, 5000);
 
     type MockRecordData = {
         id: string;
@@ -435,7 +450,7 @@ describe('plugin module', () => {
         catch (err) {
             console.warn(`Error when attempting to disconnect:\n${err}`);
         }
-    }, 20 * 1000);
+    }, 15 * 1000);
 
     test('read stream real time - post 5 records', async () => {
         // SETUP
@@ -602,7 +617,7 @@ describe('plugin module', () => {
         catch (err) {
             console.warn(`Error when attempting to disconnect:\n${err}`);
         }
-    }, 30 * 1000);
+    }, 15 * 1000);
 
     test('read stream real time - delete 3 records', async () => {
         // SETUP
@@ -759,5 +774,5 @@ describe('plugin module', () => {
         catch (err) {
             console.warn(`Error when attempting to disconnect:\n${err}`);
         }
-    }, 30 * 1000);
+    }, 15 * 1000);
 });

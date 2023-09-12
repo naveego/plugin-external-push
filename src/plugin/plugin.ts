@@ -49,6 +49,8 @@ import * as fs from 'fs';
 import { GetAllSchemas } from '../api/discover/get-all-schemas';
 import express from "express";
 import * as ReadConfig from '../api/read/get-schema-json';
+import { getAppRootDirectory } from '../main';
+import path from 'path';
 
 // global plugin constants
 let logger = new Logger();
@@ -172,19 +174,22 @@ export class Plugin implements IPublisherServer {
     
     configure(call: ServerUnaryCall<ConfigureRequest, ConfigureResponse>, callback: sendUnaryData<ConfigureResponse>) {
         // ensure all directories
-        let tempDir = call.request.getTemporaryDirectory();
+        let cwd = getAppRootDirectory();
+        const recursive = true;
+
+        let tempDir = path.join(cwd, call.request.getTemporaryDirectory());
         if (!fs.existsSync(tempDir)) {
-            fs.mkdirSync(tempDir);
+            fs.mkdirSync(tempDir, { recursive });
         }
 
-        let permanentDir = call.request.getPermanentDirectory();
+        let permanentDir = path.join(cwd, call.request.getPermanentDirectory());
         if (!fs.existsSync(permanentDir)) {
-            fs.mkdirSync(permanentDir);
+            fs.mkdirSync(permanentDir, { recursive });
         }
 
-        let logDir = call.request.getLogDirectory();
+        let logDir = path.join(cwd, call.request.getLogDirectory());
         if (!fs.existsSync(logDir)) {
-            fs.mkdirSync(logDir);
+            fs.mkdirSync(logDir, { recursive });
         }
 
         // configure logger
