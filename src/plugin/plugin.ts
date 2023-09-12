@@ -69,7 +69,7 @@ function waitForDisconnect(): void {
     }
 }
 
-async function connectImpl(request: ConnectRequest): Promise<ConnectResponse> {
+function connectImpl(request: ConnectRequest): ConnectResponse {
     logger.SetLogPrefix("connect");
     logger.Info('Connecting...');
 
@@ -170,7 +170,7 @@ export class Plugin implements IPublisherServer {
 
     [name: string]: import("@grpc/grpc-js").UntypedHandleCall;
     
-    async configure(call: ServerUnaryCall<ConfigureRequest, ConfigureResponse>, callback: sendUnaryData<ConfigureResponse>) {
+    configure(call: ServerUnaryCall<ConfigureRequest, ConfigureResponse>, callback: sendUnaryData<ConfigureResponse>) {
         // ensure all directories
         let tempDir = call.request.getTemporaryDirectory();
         if (!fs.existsSync(tempDir)) {
@@ -194,12 +194,12 @@ export class Plugin implements IPublisherServer {
         callback(null, new ConfigureResponse());
     }
 
-    async connect(call: ServerUnaryCall<ConnectRequest, ConnectResponse>, callback: sendUnaryData<ConnectResponse>) {
-        callback(null, await connectImpl(call.request));
+    connect(call: ServerUnaryCall<ConnectRequest, ConnectResponse>, callback: sendUnaryData<ConnectResponse>) {
+        callback(null, connectImpl(call.request));
     }
 
-    async connectSession(call: ServerWritableStream<ConnectRequest, ConnectResponse>) {
-        call.write(await connectImpl(call.request));
+    connectSession(call: ServerWritableStream<ConnectRequest, ConnectResponse>) {
+        call.write(connectImpl(call.request));
 
         // sit forever and don't block
         waitForDisconnect();
