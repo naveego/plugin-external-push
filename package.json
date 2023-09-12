@@ -4,8 +4,8 @@
   "description": "Publisher which connects to allows data to be pushed into the system",
   "main": "src/main.ts",
   "scripts": {
-    "test": "jest",
-    "compile": "npx tsc",
+    "test": "jest --config=jest.config.ts",
+    "compile": "npx tsc && rm -f jest.config.js && rm -rf build/src/tests",
     "build-linux": "mkdir -p dist/linux && npx pkg --targets node16-linux-x64 --output dist/linux/PluginExternalPush build/src/main.js",
     "build-osx": "mkdir -p dist/osx && npx pkg --targets node16-macos-x64 --output dist/osx/PluginExternalPush build/src/main.js",
     "build-win": "mkdir -p dist/win && npx pkg --targets node16-win-x64 --output dist/win/PluginExternalPush build/src/main.js",
@@ -19,7 +19,7 @@
     "zip-win": "mkdir -p dist/publish && zip -j dist/publish/plugin-external-push_1.0.0_windows_amd64.zip dist/win/*",
     "zip": "npm run zip-linux && npm run zip-osx && npm run zip-win",
     "publish": "npm run build && npm run copy && npm run zip",
-    "clean": "rm -rf dist && rm -rf build"
+    "clean": "rm -rf build && rm -rf dist"
   },
   "author": "Aunalytics Inc.",
   "license": "MIT",

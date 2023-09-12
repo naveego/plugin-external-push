@@ -41,7 +41,7 @@ import {
     Schema
 } from '../proto/publisher_pb';
 
-import { IPublisherServer} from '../proto/publisher_grpc_pb';
+import { IPublisherServer } from '../proto/publisher_grpc_pb';
 import { Logger } from '../logger/logger';
 import { Settings, ValidateSettings } from '../helper/settings';
 import { ServerStatus } from '../helper/server-status';
@@ -170,7 +170,7 @@ export class Plugin implements IPublisherServer {
 
     [name: string]: import("@grpc/grpc-js").UntypedHandleCall;
     
-    configure(call: ServerUnaryCall<ConfigureRequest, ConfigureResponse>, callback: sendUnaryData<ConfigureResponse>) {
+    async configure(call: ServerUnaryCall<ConfigureRequest, ConfigureResponse>, callback: sendUnaryData<ConfigureResponse>) {
         // ensure all directories
         let tempDir = call.request.getTemporaryDirectory();
         if (!fs.existsSync(tempDir)) {
@@ -192,7 +192,7 @@ export class Plugin implements IPublisherServer {
         serverStatus.config = call.request;
 
         callback(null, new ConfigureResponse());
-    };
+    }
 
     async connect(call: ServerUnaryCall<ConnectRequest, ConnectResponse>, callback: sendUnaryData<ConnectResponse>) {
         callback(null, await connectImpl(call.request));
@@ -344,7 +344,7 @@ export class Plugin implements IPublisherServer {
         }
     }
 
-    disconnect(call: ServerUnaryCall<DisconnectRequest, DisconnectResponse>, callback: sendUnaryData<DisconnectResponse>) {
+    async disconnect(call: ServerUnaryCall<DisconnectRequest, DisconnectResponse>, callback: sendUnaryData<DisconnectResponse>) {
         serverStatus?.expressServer?.close();
 
         serverStatus = {
