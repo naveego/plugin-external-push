@@ -19,7 +19,8 @@
     "zip-win": "mkdir -p dist/publish && zip -j dist/publish/plugin-external-push_1.0.0_windows_amd64.zip dist/win/*",
     "zip": "npm run zip-linux && npm run zip-osx && npm run zip-win",
     "publish": "npm run build && npm run copy && npm run zip",
-    "clean": "rm -rf build && rm -rf dist"
+    "clean": "rm -rf build && rm -rf dist",
+    "generate": "cd proto && npx buf generate && cd .."
   },
   "author": "Aunalytics Inc.",
   "license": "MIT",
