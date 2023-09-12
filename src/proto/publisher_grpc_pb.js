@@ -338,7 +338,7 @@ function deserialize_Schema(buffer_arg) {
 var PublisherService = exports.PublisherService = {
   // Configures the plugin.
 configure: {
-    path: '/Publisher/Configure',
+    path: '/pub.Publisher/Configure',
     requestStream: false,
     responseStream: false,
     requestType: publisher_pb.ConfigureRequest,
@@ -350,7 +350,7 @@ configure: {
   },
   // Instructs the plugin to connect to its data source.
 connect: {
-    path: '/Publisher/Connect',
+    path: '/pub.Publisher/Connect',
     requestStream: false,
     responseStream: false,
     requestType: publisher_pb.ConnectRequest,
@@ -367,7 +367,7 @@ connect: {
 // This must be implemented if the plugin manifest has `canUseOAuth` set to
 // true.
 connectSession: {
-    path: '/Publisher/ConnectSession',
+    path: '/pub.Publisher/ConnectSession',
     requestStream: false,
     responseStream: true,
     requestType: publisher_pb.ConnectRequest,
@@ -383,7 +383,7 @@ connectSession: {
 // Deprecated: Deprecated in API version 2. Implement DiscoverSchemasStream
 // instead.
 discoverShapes: {
-    path: '/Publisher/DiscoverShapes',
+    path: '/pub.Publisher/DiscoverShapes',
     requestStream: false,
     responseStream: false,
     requestType: publisher_pb.DiscoverSchemasRequest,
@@ -400,7 +400,7 @@ discoverShapes: {
 // Deprecated: Deprecated in API version 2. Implement DiscoverSchemasStream
 // instead.
 discoverSchemas: {
-    path: '/Publisher/DiscoverSchemas',
+    path: '/pub.Publisher/DiscoverSchemas',
     requestStream: false,
     responseStream: false,
     requestType: publisher_pb.DiscoverSchemasRequest,
@@ -414,7 +414,7 @@ discoverSchemas: {
 // 
 // API Version: 3
 discoverSchemasStream: {
-    path: '/Publisher/DiscoverSchemasStream',
+    path: '/pub.Publisher/DiscoverSchemasStream',
     requestStream: false,
     responseStream: true,
     requestType: publisher_pb.DiscoverSchemasRequest,
@@ -429,7 +429,7 @@ discoverSchemasStream: {
 // 
 // Deprecated: Deprecated in API Version 2. Implement ReadStream instead.
 publishStream: {
-    path: '/Publisher/PublishStream',
+    path: '/pub.Publisher/PublishStream',
     requestStream: false,
     responseStream: true,
     requestType: publisher_pb.ReadRequest,
@@ -442,7 +442,7 @@ publishStream: {
   // ReadStream begins streaming records to the client from the plugin.
 // API Version: 2
 readStream: {
-    path: '/Publisher/ReadStream',
+    path: '/pub.Publisher/ReadStream',
     requestStream: false,
     responseStream: true,
     requestType: publisher_pb.ReadRequest,
@@ -455,7 +455,7 @@ readStream: {
   // Tells the plugin to disconnect from its data source, stop any running
 // publishes, and gracefully prepare to be shut down.
 disconnect: {
-    path: '/Publisher/Disconnect',
+    path: '/pub.Publisher/Disconnect',
     requestStream: false,
     responseStream: false,
     requestType: publisher_pb.DisconnectRequest,
@@ -470,7 +470,7 @@ disconnect: {
 // `canConfigureConnection` set to true. This is an alternative to having a
 // `configSchema` element in the manifest.
 configureConnection: {
-    path: '/Publisher/ConfigureConnection',
+    path: '/pub.Publisher/ConfigureConnection',
     requestStream: false,
     responseStream: false,
     requestType: publisher_pb.ConfigureConnectionRequest,
@@ -484,7 +484,7 @@ configureConnection: {
 // This must be implemented if the plugin manifest has `canConfigureQuery` set
 // to true.
 configureQuery: {
-    path: '/Publisher/ConfigureQuery',
+    path: '/pub.Publisher/ConfigureQuery',
     requestStream: false,
     responseStream: false,
     requestType: publisher_pb.ConfigureQueryRequest,
@@ -498,7 +498,7 @@ configureQuery: {
 // This must be implemented if the plugin manifest has `canPublishRealTime`
 // set to true.
 configureRealTime: {
-    path: '/Publisher/ConfigureRealTime',
+    path: '/pub.Publisher/ConfigureRealTime',
     requestStream: false,
     responseStream: false,
     requestType: publisher_pb.ConfigureRealTimeRequest,
@@ -511,7 +511,7 @@ configureRealTime: {
   // Invoked to begin an OAuth flow. This must be implemented if the plugin
 // manifest has `canUseOAuth` set to true.
 beginOAuthFlow: {
-    path: '/Publisher/BeginOAuthFlow',
+    path: '/pub.Publisher/BeginOAuthFlow',
     requestStream: false,
     responseStream: false,
     requestType: publisher_pb.BeginOAuthFlowRequest,
@@ -524,7 +524,7 @@ beginOAuthFlow: {
   // Invoked to complete an OAuth flow. This must be implemented if the plugin
 // manifest has `canUseOAuth` set to true.
 completeOAuthFlow: {
-    path: '/Publisher/CompleteOAuthFlow',
+    path: '/pub.Publisher/CompleteOAuthFlow',
     requestStream: false,
     responseStream: false,
     requestType: publisher_pb.CompleteOAuthFlowRequest,
@@ -538,7 +538,7 @@ completeOAuthFlow: {
 // source. This must be implemented if the plugin manifest has
 // `canConfigureWrite` set to true.
 configureWrite: {
-    path: '/Publisher/ConfigureWrite',
+    path: '/pub.Publisher/ConfigureWrite',
     requestStream: false,
     responseStream: false,
     requestType: publisher_pb.ConfigureWriteRequest,
@@ -551,7 +551,7 @@ configureWrite: {
   // Configures a replication write back, where the plugin is in control
 // of the destination and can insert/update/delete at will.
 configureReplication: {
-    path: '/Publisher/ConfigureReplication',
+    path: '/pub.Publisher/ConfigureReplication',
     requestStream: false,
     responseStream: false,
     requestType: publisher_pb.ConfigureReplicationRequest,
@@ -564,7 +564,7 @@ configureReplication: {
   // Invoked to begin a write back request
 // This must be implemented if the manifest has `canWrite` set to true.
 prepareWrite: {
-    path: '/Publisher/PrepareWrite',
+    path: '/pub.Publisher/PrepareWrite',
     requestStream: false,
     responseStream: false,
     requestType: publisher_pb.PrepareWriteRequest,
@@ -578,7 +578,7 @@ prepareWrite: {
 // acks for write backs This must be implemented if the manifest has
 // `canWrite` set to true.
 writeStream: {
-    path: '/Publisher/WriteStream',
+    path: '/pub.Publisher/WriteStream',
     requestStream: true,
     responseStream: true,
     requestType: publisher_pb.Record,
@@ -590,7 +590,7 @@ writeStream: {
   },
   // Requests a listing of all related entities.
 discoverRelatedEntities: {
-    path: '/Publisher/DiscoverRelatedEntities',
+    path: '/pub.Publisher/DiscoverRelatedEntities',
     requestStream: false,
     responseStream: false,
     requestType: publisher_pb.DiscoverRelatedEntitiesRequest,

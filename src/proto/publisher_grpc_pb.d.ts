@@ -30,7 +30,7 @@ interface IPublisherService extends grpc.ServiceDefinition<grpc.UntypedServiceIm
 }
 
 interface IPublisherService_IConfigure extends grpc.MethodDefinition<publisher_pb.ConfigureRequest, publisher_pb.ConfigureResponse> {
-    path: "/Publisher/Configure";
+    path: "/pub.Publisher/Configure";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<publisher_pb.ConfigureRequest>;
@@ -39,7 +39,7 @@ interface IPublisherService_IConfigure extends grpc.MethodDefinition<publisher_p
     responseDeserialize: grpc.deserialize<publisher_pb.ConfigureResponse>;
 }
 interface IPublisherService_IConnect extends grpc.MethodDefinition<publisher_pb.ConnectRequest, publisher_pb.ConnectResponse> {
-    path: "/Publisher/Connect";
+    path: "/pub.Publisher/Connect";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<publisher_pb.ConnectRequest>;
@@ -48,7 +48,7 @@ interface IPublisherService_IConnect extends grpc.MethodDefinition<publisher_pb.
     responseDeserialize: grpc.deserialize<publisher_pb.ConnectResponse>;
 }
 interface IPublisherService_IConnectSession extends grpc.MethodDefinition<publisher_pb.ConnectRequest, publisher_pb.ConnectResponse> {
-    path: "/Publisher/ConnectSession";
+    path: "/pub.Publisher/ConnectSession";
     requestStream: false;
     responseStream: true;
     requestSerialize: grpc.serialize<publisher_pb.ConnectRequest>;
@@ -57,7 +57,7 @@ interface IPublisherService_IConnectSession extends grpc.MethodDefinition<publis
     responseDeserialize: grpc.deserialize<publisher_pb.ConnectResponse>;
 }
 interface IPublisherService_IDiscoverShapes extends grpc.MethodDefinition<publisher_pb.DiscoverSchemasRequest, publisher_pb.DiscoverSchemasResponse> {
-    path: "/Publisher/DiscoverShapes";
+    path: "/pub.Publisher/DiscoverShapes";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<publisher_pb.DiscoverSchemasRequest>;
@@ -66,7 +66,7 @@ interface IPublisherService_IDiscoverShapes extends grpc.MethodDefinition<publis
     responseDeserialize: grpc.deserialize<publisher_pb.DiscoverSchemasResponse>;
 }
 interface IPublisherService_IDiscoverSchemas extends grpc.MethodDefinition<publisher_pb.DiscoverSchemasRequest, publisher_pb.DiscoverSchemasResponse> {
-    path: "/Publisher/DiscoverSchemas";
+    path: "/pub.Publisher/DiscoverSchemas";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<publisher_pb.DiscoverSchemasRequest>;
@@ -75,7 +75,7 @@ interface IPublisherService_IDiscoverSchemas extends grpc.MethodDefinition<publi
     responseDeserialize: grpc.deserialize<publisher_pb.DiscoverSchemasResponse>;
 }
 interface IPublisherService_IDiscoverSchemasStream extends grpc.MethodDefinition<publisher_pb.DiscoverSchemasRequest, publisher_pb.Schema> {
-    path: "/Publisher/DiscoverSchemasStream";
+    path: "/pub.Publisher/DiscoverSchemasStream";
     requestStream: false;
     responseStream: true;
     requestSerialize: grpc.serialize<publisher_pb.DiscoverSchemasRequest>;
@@ -84,7 +84,7 @@ interface IPublisherService_IDiscoverSchemasStream extends grpc.MethodDefinition
     responseDeserialize: grpc.deserialize<publisher_pb.Schema>;
 }
 interface IPublisherService_IPublishStream extends grpc.MethodDefinition<publisher_pb.ReadRequest, publisher_pb.Record> {
-    path: "/Publisher/PublishStream";
+    path: "/pub.Publisher/PublishStream";
     requestStream: false;
     responseStream: true;
     requestSerialize: grpc.serialize<publisher_pb.ReadRequest>;
@@ -93,7 +93,7 @@ interface IPublisherService_IPublishStream extends grpc.MethodDefinition<publish
     responseDeserialize: grpc.deserialize<publisher_pb.Record>;
 }
 interface IPublisherService_IReadStream extends grpc.MethodDefinition<publisher_pb.ReadRequest, publisher_pb.Record> {
-    path: "/Publisher/ReadStream";
+    path: "/pub.Publisher/ReadStream";
     requestStream: false;
     responseStream: true;
     requestSerialize: grpc.serialize<publisher_pb.ReadRequest>;
@@ -102,7 +102,7 @@ interface IPublisherService_IReadStream extends grpc.MethodDefinition<publisher_
     responseDeserialize: grpc.deserialize<publisher_pb.Record>;
 }
 interface IPublisherService_IDisconnect extends grpc.MethodDefinition<publisher_pb.DisconnectRequest, publisher_pb.DisconnectResponse> {
-    path: "/Publisher/Disconnect";
+    path: "/pub.Publisher/Disconnect";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<publisher_pb.DisconnectRequest>;
@@ -111,7 +111,7 @@ interface IPublisherService_IDisconnect extends grpc.MethodDefinition<publisher_
     responseDeserialize: grpc.deserialize<publisher_pb.DisconnectResponse>;
 }
 interface IPublisherService_IConfigureConnection extends grpc.MethodDefinition<publisher_pb.ConfigureConnectionRequest, publisher_pb.ConfigureConnectionResponse> {
-    path: "/Publisher/ConfigureConnection";
+    path: "/pub.Publisher/ConfigureConnection";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<publisher_pb.ConfigureConnectionRequest>;
@@ -120,7 +120,7 @@ interface IPublisherService_IConfigureConnection extends grpc.MethodDefinition<p
     responseDeserialize: grpc.deserialize<publisher_pb.ConfigureConnectionResponse>;
 }
 interface IPublisherService_IConfigureQuery extends grpc.MethodDefinition<publisher_pb.ConfigureQueryRequest, publisher_pb.ConfigureQueryResponse> {
-    path: "/Publisher/ConfigureQuery";
+    path: "/pub.Publisher/ConfigureQuery";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<publisher_pb.ConfigureQueryRequest>;
@@ -129,7 +129,7 @@ interface IPublisherService_IConfigureQuery extends grpc.MethodDefinition<publis
     responseDeserialize: grpc.deserialize<publisher_pb.ConfigureQueryResponse>;
 }
 interface IPublisherService_IConfigureRealTime extends grpc.MethodDefinition<publisher_pb.ConfigureRealTimeRequest, publisher_pb.ConfigureRealTimeResponse> {
-    path: "/Publisher/ConfigureRealTime";
+    path: "/pub.Publisher/ConfigureRealTime";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<publisher_pb.ConfigureRealTimeRequest>;
@@ -138,7 +138,7 @@ interface IPublisherService_IConfigureRealTime extends grpc.MethodDefinition<pub
     responseDeserialize: grpc.deserialize<publisher_pb.ConfigureRealTimeResponse>;
 }
 interface IPublisherService_IBeginOAuthFlow extends grpc.MethodDefinition<publisher_pb.BeginOAuthFlowRequest, publisher_pb.BeginOAuthFlowResponse> {
-    path: "/Publisher/BeginOAuthFlow";
+    path: "/pub.Publisher/BeginOAuthFlow";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<publisher_pb.BeginOAuthFlowRequest>;
@@ -147,7 +147,7 @@ interface IPublisherService_IBeginOAuthFlow extends grpc.MethodDefinition<publis
     responseDeserialize: grpc.deserialize<publisher_pb.BeginOAuthFlowResponse>;
 }
 interface IPublisherService_ICompleteOAuthFlow extends grpc.MethodDefinition<publisher_pb.CompleteOAuthFlowRequest, publisher_pb.CompleteOAuthFlowResponse> {
-    path: "/Publisher/CompleteOAuthFlow";
+    path: "/pub.Publisher/CompleteOAuthFlow";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<publisher_pb.CompleteOAuthFlowRequest>;
@@ -156,7 +156,7 @@ interface IPublisherService_ICompleteOAuthFlow extends grpc.MethodDefinition<pub
     responseDeserialize: grpc.deserialize<publisher_pb.CompleteOAuthFlowResponse>;
 }
 interface IPublisherService_IConfigureWrite extends grpc.MethodDefinition<publisher_pb.ConfigureWriteRequest, publisher_pb.ConfigureWriteResponse> {
-    path: "/Publisher/ConfigureWrite";
+    path: "/pub.Publisher/ConfigureWrite";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<publisher_pb.ConfigureWriteRequest>;
@@ -165,7 +165,7 @@ interface IPublisherService_IConfigureWrite extends grpc.MethodDefinition<publis
     responseDeserialize: grpc.deserialize<publisher_pb.ConfigureWriteResponse>;
 }
 interface IPublisherService_IConfigureReplication extends grpc.MethodDefinition<publisher_pb.ConfigureReplicationRequest, publisher_pb.ConfigureReplicationResponse> {
-    path: "/Publisher/ConfigureReplication";
+    path: "/pub.Publisher/ConfigureReplication";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<publisher_pb.ConfigureReplicationRequest>;
@@ -174,7 +174,7 @@ interface IPublisherService_IConfigureReplication extends grpc.MethodDefinition<
     responseDeserialize: grpc.deserialize<publisher_pb.ConfigureReplicationResponse>;
 }
 interface IPublisherService_IPrepareWrite extends grpc.MethodDefinition<publisher_pb.PrepareWriteRequest, publisher_pb.PrepareWriteResponse> {
-    path: "/Publisher/PrepareWrite";
+    path: "/pub.Publisher/PrepareWrite";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<publisher_pb.PrepareWriteRequest>;
@@ -183,7 +183,7 @@ interface IPublisherService_IPrepareWrite extends grpc.MethodDefinition<publishe
     responseDeserialize: grpc.deserialize<publisher_pb.PrepareWriteResponse>;
 }
 interface IPublisherService_IWriteStream extends grpc.MethodDefinition<publisher_pb.Record, publisher_pb.RecordAck> {
-    path: "/Publisher/WriteStream";
+    path: "/pub.Publisher/WriteStream";
     requestStream: true;
     responseStream: true;
     requestSerialize: grpc.serialize<publisher_pb.Record>;
@@ -192,7 +192,7 @@ interface IPublisherService_IWriteStream extends grpc.MethodDefinition<publisher
     responseDeserialize: grpc.deserialize<publisher_pb.RecordAck>;
 }
 interface IPublisherService_IDiscoverRelatedEntities extends grpc.MethodDefinition<publisher_pb.DiscoverRelatedEntitiesRequest, publisher_pb.DiscoverRelatedEntitiesResponse> {
-    path: "/Publisher/DiscoverRelatedEntities";
+    path: "/pub.Publisher/DiscoverRelatedEntities";
     requestStream: false;
     responseStream: false;
     requestSerialize: grpc.serialize<publisher_pb.DiscoverRelatedEntitiesRequest>;
