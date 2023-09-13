@@ -193,6 +193,10 @@ export class Plugin implements IPublisherServer {
         }
 
         // configure logger
+        let dateString = (new Date()).toISOString().slice(0, 10);
+        let logTargetFile = path.join(logDir, `plugin-external-push-log__${dateString}`);
+
+        logger.init(logTargetFile);
         logger.SetLogLevel(call.request.getLogLevel());
         serverStatus.config = call.request;
 
@@ -236,6 +240,7 @@ export class Plugin implements IPublisherServer {
     }
 
     async configureRealTime(call: ServerUnaryCall<ConfigureRealTimeRequest, ConfigureRealTimeResponse>, callback: sendUnaryData<ConfigureRealTimeResponse>) {
+        logger.SetLogPrefix("configure-real-time");
         logger.Info("Configuring real time...");
 
         let schemaJson = (await ReadConfig.GetSchemaJson()) ?? "";
@@ -262,6 +267,7 @@ export class Plugin implements IPublisherServer {
     }
 
     async readStream(call: ServerWritableStream<ReadRequest, Record>) {
+        logger.SetLogPrefix("read-stream");
         logger.Info("Starting read stream...");
 
         // Keep call open until stream is destroyed
@@ -350,6 +356,9 @@ export class Plugin implements IPublisherServer {
     }
 
     async disconnect(call: ServerUnaryCall<DisconnectRequest, DisconnectResponse>, callback: sendUnaryData<DisconnectResponse>) {
+        logger.SetLogPrefix("disconnect");
+        logger.Info(`Stopping read stream...`);
+
         serverStatus?.expressServer?.close();
 
         serverStatus = {
@@ -361,6 +370,8 @@ export class Plugin implements IPublisherServer {
             },
             expressServer: undefined
         };
+
+        logger.Flush();
     
         callback(null, new DisconnectResponse());
     }
