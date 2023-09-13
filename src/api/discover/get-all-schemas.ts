@@ -1,11 +1,11 @@
-import { Settings } from "../../helper/settings";
-import { Logger } from "../../logger/logger";
-import { Count, Property, PropertyType, Schema } from "../../proto/publisher_pb";
+import { Settings } from '../../helper/settings';
+import { Logger } from '../../logger/logger';
+import { Count, Property, PropertyType, Schema } from '../../proto/publisher_pb';
 
 export async function GetAllSchemas(logger: Logger, settings: Settings, sampleSize: number): Promise<Schema[]> {
     let schema: Schema = new Schema()
-        .setId("external-push-schema")
-        .setName("External Push Schema")
+        .setId('external-push-schema')
+        .setName('External Push Schema')
         .setDataFlowDirection(Schema.DataFlowDirection.READ);
     
     let inputProperties = settings.inputSchema;
@@ -29,17 +29,17 @@ export async function GetAllSchemas(logger: Logger, settings: Settings, sampleSi
 
 export function GetType(dataType: string): PropertyType {
     switch (dataType) {
-        case "String":
+        case 'String':
             return PropertyType.STRING;
-        case "Integer":
+        case 'Integer':
             return PropertyType.INTEGER;
-        case "Float":
+        case 'Float':
             return PropertyType.FLOAT;
-        case "Boolean":
+        case 'Boolean':
             return PropertyType.BOOL;
-        case "Date Time":
+        case 'Date Time':
             return PropertyType.DATETIME;
-        case "JSON":
+        case 'JSON':
             return PropertyType.TEXT;
         default:
             return PropertyType.STRING;

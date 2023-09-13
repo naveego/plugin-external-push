@@ -1,4 +1,4 @@
-import { Express } from "express";
+import { Express } from 'express';
 
 export async function InjectAuthenticationMiddleware(app: Express): Promise<Express> {
     app.post('/authenticate', (req, res, next) => {

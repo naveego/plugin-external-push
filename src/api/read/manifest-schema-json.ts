@@ -9,7 +9,7 @@ async function getConfigSchemaElement(element: string): Promise<string | undefin
         let manifestPath = path.join(getAppRootDirectory(), 'manifest.json');
         const data = await fs.readFile(manifestPath, { encoding: 'utf8' });
 
-        let targetElement = JSON.parse(data)?.["configSchema"]?.[element];
+        let targetElement = JSON.parse(data)?.['configSchema']?.[element];
         if (_.isNil(targetElement)) {
             return undefined;
         }
@@ -20,19 +20,19 @@ async function getConfigSchemaElement(element: string): Promise<string | undefin
     }
 }
 
-export async function GetSchemaJson(): Promise<string> {
-    let schemaJson = await getConfigSchemaElement("schema");
+export async function GetManifestSchemaJson(): Promise<string> {
+    let schemaJson = await getConfigSchemaElement('schema');
     if (schemaJson === undefined) {
-        throw new Error("Schema JSON not found");
+        throw new Error('Schema JSON not found');
     }
 
     return schemaJson;
 }
 
-export async function GetUIJson(): Promise<string> {
-    let schemaJson = await getConfigSchemaElement("ui");
+export async function GetManifestUIJson(): Promise<string> {
+    let schemaJson = await getConfigSchemaElement('ui');
     if (schemaJson === undefined) {
-        throw new Error("UI JSON not found");
+        throw new Error('UI JSON not found');
     }
 
     return schemaJson;

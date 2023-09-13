@@ -17,6 +17,8 @@ import {
 import { Plugin } from '../plugin/plugin'
 import { PublisherClient } from '../proto/publisher_grpc_pb';
 import {
+    ConfigurationFormRequest,
+    ConfigureRealTimeRequest,
     ConfigureRequest,
     ConnectRequest,
     ConnectResponse,
@@ -33,7 +35,7 @@ import {
     Schema
 } from '../proto/publisher_pb';
 import { InputSchemaProperty, Settings } from '../helper/settings';
-import { GetSchemaJson, GetUIJson } from '../api/read/get-schema-json';
+import { GetManifestSchemaJson, GetManifestUIJson } from '../api/read/manifest-schema-json';
 import path from 'path';
 import { RealTimeSettings, RealTimeState } from '../api/read/real-time-types';
 import { endpointPromise } from '../util/publisher-promises';
@@ -93,7 +95,7 @@ function getConnectRequest(inputSchema?: InputSchemaProperty[]) {
     let connectRequest = new ConnectRequest();
     connectRequest.setSettingsJson(JSON.stringify(settings));
     connectRequest.setOauthConfiguration(new OAuthConfiguration());
-    connectRequest.setOauthStateJson("");
+    connectRequest.setOauthStateJson('');
 
     return connectRequest;
 }
@@ -115,7 +117,10 @@ function getConfigureRequest() {
         .setLogLevel(LogLevel.DEBUG);
 }
 
-function getReadRequest(schema: Schema) {
+function getReadRequest(schema: Schema, channelName: string, isRealTime: boolean = true) {
+    let realTimeSettings = new RealTimeSettings();
+    realTimeSettings.channelName = channelName;
+
     return new ReadRequest()
         .setSchema(schema)
         .setDataVersions(new DataVersions()
@@ -123,8 +128,8 @@ function getReadRequest(schema: Schema) {
             .setJobDataVersion(1)
         )
         .setJobId('test')
-        .setRealTimeStateJson(new RealTimeState().toString())
-        .setRealTimeSettingsJson(new RealTimeSettings().toString());
+        .setRealTimeStateJson('')
+        .setRealTimeSettingsJson(isRealTime ? realTimeSettings.toString() : '');
 }
 
 // ********************
@@ -134,64 +139,64 @@ function getReadRequest(schema: Schema) {
 beforeAll(/* SETUP */ async () => await startServerIfNotRunning());
 afterAll(/* CLEANUP */ () => globalServer.forceShutdown());
 
-beforeEach(async () => await sleep(2000));
+beforeEach(async () => await sleep(1200));
 
 describe('config schema module', () => {
     // SETUP
     const expectedSchemaObject = {
-        "type": "object",
-        "properties": {
-            "port": {
-                "type": "integer",
-                "title": "Port"
+        'type': 'object',
+        'properties': {
+            'port': {
+                'type': 'integer',
+                'title': 'Port'
             },
-            "tokenValidationEndpoint": {
-                "type": "string",
-                "title": "Token Validation Endpoint"
+            'tokenValidationEndpoint': {
+                'type': 'string',
+                'title': 'Token Validation Endpoint'
             },
-            "inputSchema": {
-                "type": "array",
-                "title": "Input Schema",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "propertyName": {
-                            "type": "string",
-                            "title": "Property Name"
+            'inputSchema': {
+                'type': 'array',
+                'title': 'Input Schema',
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'propertyName': {
+                            'type': 'string',
+                            'title': 'Property Name'
                         },
-                        "propertyType": {
-                            "type": "string",
-                            "title": "Property Type",
-                            "enum": [
-                                "String",
-                                "Integer",
-                                "Float",
-                                "Boolean",
-                                "Date Time",
-                                "JSON"
+                        'propertyType': {
+                            'type': 'string',
+                            'title': 'Property Type',
+                            'enum': [
+                                'String',
+                                'Integer',
+                                'Float',
+                                'Boolean',
+                                'Date Time',
+                                'JSON'
                             ]
                         }
                     }
                 }
             }
         },
-        "required": [
-            "port",
-            "inputSchema"
+        'required': [
+            'port',
+            'inputSchema'
         ]
     };
 
     const expectedUIObject = {
-        "ui:order": [
-          "port",
-          "tokenValidationEndpoint",
-          "inputSchema"
+        'ui:order': [
+          'port',
+          'tokenValidationEndpoint',
+          'inputSchema'
         ]
     };
 
     test('getSchemaJson', () => (async () => {
         // ACT
-        let schemaJson = await GetSchemaJson();
+        let schemaJson = await GetManifestSchemaJson();
         let actual = JSON.stringify(JSON.parse(schemaJson));
         let expected = JSON.stringify(expectedSchemaObject);
 
@@ -201,7 +206,7 @@ describe('config schema module', () => {
 
     test('getUIJson', () => (async () => {
         // ACT
-        let schemaJson = await GetUIJson();
+        let schemaJson = await GetManifestUIJson();
         let actual = JSON.stringify(JSON.parse(schemaJson));
         let expected = JSON.stringify(expectedUIObject);
 
@@ -353,7 +358,7 @@ describe('plugin module', () => {
         let responseStream: ClientReadableStream<Record>;
         let schema = discoverResponse.getSchemasList()[0];
 
-        let readRequest = getReadRequest(schema);
+        let readRequest = getReadRequest(schema, 'post1');
 
         try {
             responseStream = client.readStream(readRequest);
@@ -501,7 +506,7 @@ describe('plugin module', () => {
         let responseStream: ClientReadableStream<Record>;
         let schema = discoverResponse.getSchemasList()?.[0];
 
-        let readRequest = getReadRequest(schema);
+        let readRequest = getReadRequest(schema, 'post5');
 
         try {
             responseStream = client.readStream(readRequest);
@@ -658,7 +663,7 @@ describe('plugin module', () => {
         let responseStream: ClientReadableStream<Record>;
         let schema = discoverResponse.getSchemasList()?.[0];
 
-        let readRequest = getReadRequest(schema);
+        let readRequest = getReadRequest(schema, 'delete3');
 
         try {
             responseStream = client.readStream(readRequest);
@@ -775,4 +780,50 @@ describe('plugin module', () => {
             console.warn(`Error when attempting to disconnect:\n${err}`);
         }
     }, 15 * 1000);
+
+    // test('read stream - fail', async () => {
+    //     // See: plugin.ts > Plugin.readStream()
+
+    //     // SETUP
+    //     let client = getGrpcClient();
+
+    //     let connectRequest = getConnectRequest();
+    //     await endpointPromise(client, client.connect, connectRequest);
+
+    //     let discoverRequest = getDiscoverSchemasRequest();
+    //     let discoverResponse = await endpointPromise<
+    //         DiscoverSchemasRequest,
+    //         DiscoverSchemasResponse
+    //     >(client, client.discoverSchemas, discoverRequest);
+
+    //     let responseStream: ClientReadableStream<Record> | undefined = undefined;
+    //     let schema = discoverResponse.getSchemasList()[0];
+
+    //     let readRequest = getReadRequest(schema, 'post1', false);
+
+    //     // ACT
+    //     const timeStart = Date.now();
+    //     responseStream = client.readStream(readRequest);
+        
+    //     // ASSERT
+    //     responseStream.on('error', err => {
+    //         if (err.message.includes('CANCELLED: Call cancelled')) return;
+
+    //         const timeEnd = Date.now();
+    //         const durationSeconds = Math.round((timeEnd - timeStart) / 10) / 100;
+    //         console.log(`Waited ${durationSeconds} second${(durationSeconds === 1) ? '' : 's'} for read stream to throw`);
+    //         expect(err.message).toBe('2 UNKNOWN: Only Real Time Read jobs are supported by this plugin (Job schedule)');
+    //     });
+
+    //     await sleep(2000);
+
+    //     // CLEANUP
+    //     if (responseStream) { responseStream.destroy(); }
+    //     try {
+    //         await endpointPromise(client, client.disconnect, new DisconnectRequest());
+    //     }
+    //     catch (err) {
+    //         console.warn(`Error when attempting to disconnect:\n${err}`);
+    //     }
+    // }, 15 * 1000);
 });

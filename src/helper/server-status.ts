@@ -1,6 +1,6 @@
-import { Server } from "net";
-import { ConfigureRequest } from "../proto/publisher_pb";
-import { Settings } from "./settings";
+import { Server } from 'net';
+import { ConfigureRequest } from '../proto/publisher_pb';
+import { Settings } from './settings';
 
 export interface ServerStatus {
     connected: boolean;

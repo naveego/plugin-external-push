@@ -1,6 +1,6 @@
-import { ServiceError } from "@grpc/grpc-js";
-import { SurfaceCall } from "@grpc/grpc-js/build/src/call";
-import { PublisherClient } from "../proto/publisher_grpc_pb";
+import { ServiceError } from '@grpc/grpc-js';
+import { SurfaceCall } from '@grpc/grpc-js/build/src/call';
+import { PublisherClient } from '../proto/publisher_grpc_pb';
 
 export type PublisherEndpoint<Request, Response> = (
     request: Request, callback: (error: ServiceError | null, response: Response) => void

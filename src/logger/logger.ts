@@ -1,40 +1,26 @@
-import { LogLevel } from "../proto/publisher_pb";
+import { LogLevel } from '../proto/publisher_pb';
 import _ from 'lodash';
 import moment from 'moment';
 import fsAsync from 'fs/promises';
 import fs from 'fs';
 
-type LogFormatter = (entry: LogEntry) => string;
-
-const logLevelFormatter = (logLevel: LogLevel): string => {
-    switch (logLevel) {
-        case LogLevel.ERROR: return 'ERROR';
-        case LogLevel.WARN: return 'WARN';
-        case LogLevel.INFO: return 'INFO';
-        case LogLevel.DEBUG: return 'DEBUG';
-        case LogLevel.TRACE: return 'TRACE';
-    }
+type LogEntry = {
+    message: string;
+    time: number;
 };
+
+type LogFormatter = (entry: LogEntry) => string;
 
 class LogBuffer {
     private entries: LogEntry[] = [];
-    private outFile: string = "";
+    private outFile: string = '';
     private flushLimit: number = -1;
     private initialized: boolean = false;
     private closed: boolean = false;
     private formatter: LogFormatter;
 
     constructor() {
-        this.formatter = (entry) => {
-            let levelStr = `[${moment(entry.time).toISOString()}] <${logLevelFormatter(entry.level)}>`;
-            if (!_.isNil(entry.error)) {
-                let msg = _.isEmpty(entry.message) ? 'Error' : entry.message;
-                return `${levelStr} ${msg} error=${entry.error.stack}`;
-            }
-            else {
-                return `${levelStr} ${entry.message}`;
-            }
-        };
+        this.formatter = (entry) => `${moment(entry.time).toISOString()} || ${entry.message}`;
     }
 
     init(
@@ -46,7 +32,7 @@ class LogBuffer {
         if (this.initialized) return true;
 
         try {
-            fs.appendFileSync(outFile, "", { encoding: 'utf-8' });
+            fs.appendFileSync(outFile, '', { encoding: 'utf-8' });
             this.initialized = true;
             this.outFile = outFile;
             this.flushLimit = flushLimit;
@@ -67,7 +53,7 @@ class LogBuffer {
 
     private pushImpl(entry: LogEntry): void {
         if (this.closed) throw new Error('Can\'t push: Buffer is closed');
-        if (_.isNil(entry.error) && _.isEmpty(entry.message)) return;
+        if (_.isEmpty(entry.message)) return;
 
         // add entry and flush if ready
         this.entries.push(entry);
@@ -91,7 +77,7 @@ class LogBuffer {
         for (let i = 0; i < sortedEntries.length; i++) {
             try {
                 const entry = sortedEntries[i];
-                const logLine = `${this.formatter(entry)}\n`;
+                const logLine = `${this.formatter(entry)}`;
                 await fsAsync.appendFile(this.outFile, logLine, { encoding: 'utf-8' });
                 linesWritten += 1;
             }
@@ -103,22 +89,8 @@ class LogBuffer {
         return linesWritten;
     }
 
-    private formatMessage(message: string, prefix: string = ''): string {
-        let msg = `${message}`;
-        if (!_.isEmpty(prefix)) {
-            msg = `${prefix} | ${msg}`;
-        }
-        return msg;
-    }
-
-    push(level: LogLevel, msg: string, prefix: string = '') {
-        let message = this.formatMessage(msg, prefix);
-        this.pushImpl({ level, message, time: moment.now() });
-    }
-
-    pushError(error: Error, msg: string, prefix?: string) {
-        let message = this.formatMessage(msg, prefix);
-        this.pushImpl({ level: LogLevel.ERROR, message, error, time: moment.now() });
+    push(message: string) {
+        this.pushImpl({ message, time: moment.now() });
     }
 
     async closeAndFlush(): Promise<number> {
@@ -135,11 +107,25 @@ class LogBuffer {
     }
 }
 
-type LogEntry = {
-    level: LogLevel;
-    message: string;
-    time: number;
-    error?: Error;
+export type LogParams = {
+    [parameterName: Lowercase<string>]: any;
+};
+
+const formatParams = (params: LogParams): LogParams => {
+    let formatted: LogParams = {};
+    for (const k in params) {
+        const lowerKey = _.toLower(k) as Lowercase<string>;
+        const lowerTrimmed = k.trim() as Lowercase<string>;
+        if (lowerKey !== lowerTrimmed && !_.isUndefined(params[lowerTrimmed]))
+            // skip: don't use this key if a value is present
+            // for the untrimmed key
+            continue;
+        else if (_.isUndefined(formatted[lowerKey])) {
+            formatted[lowerKey] = params[lowerKey];
+        }
+    }
+
+    return formatted;
 };
 
 export class Logger {
@@ -147,93 +133,107 @@ export class Logger {
     fileName: string = '';
     logBuffer: LogBuffer;
     logLevel: LogLevel = LogLevel.INFO;
+    padLength: number = 80;
 
-    constructor () {
+    constructor (padLength: number = 80) {
         this.logBuffer = new LogBuffer();
+        this.padLength = Math.max(padLength, 50);
+    }
+
+    getLevelString(level?: LogLevel) {
+        switch(level ?? this.logLevel) {
+            case LogLevel.INFO:
+                return 'INFO';
+            case LogLevel.DEBUG:
+                return 'DEBUG';
+            case LogLevel.ERROR:
+                return 'ERROR';
+            case LogLevel.TRACE:
+                return 'TRACE';
+            case LogLevel.WARN:
+                return 'WARN';
+        }
     }
 
     init(logPath: string) {
         this.fileName = logPath;
 
         if (!this.logBuffer.init(logPath, 200, undefined, process.stderr)) {
-            process.stderr.write('[ERROR] Logger | Cannot initialize log buffer');
+            process.stderr.write(`[${this.getLevelString(LogLevel.ERROR)}] Logger | Cannot initialize log buffer`);
         }
     }
 
-    getLevelString(level?: LogLevel) {
-        switch(level ?? this.logLevel) {
-            case LogLevel.INFO:
-                return "INFO";
-            case LogLevel.DEBUG:
-                return "DEBUG";
-            case LogLevel.ERROR:
-                return "ERROR";
-            case LogLevel.TRACE:
-                return "TRACE";
-            case LogLevel.WARN:
-                return "WARN";
+    private formatLogMessage = (logLevel: LogLevel, message: string, prefix: string, params?: LogParams): string => {
+        let result = `${message}`;
+    
+        // append prefix if present
+        if (!_.isEmpty(prefix)) result = `${prefix} | ${result}`;
+
+        result = `[${this.getLevelString(logLevel)}] ${result}`;
+    
+        // append parameters if present
+        if (!_.isEmpty(params)) {
+            let formattedParams = formatParams(params);
+            let paramsStr = '';
+            for (const key in formattedParams) {
+                const k = key as Lowercase<string>;
+                const v = formattedParams[k];
+    
+                let paramSegment: string;
+                if (_.isNil(v))
+                    paramSegment = 'nil';
+                else if (_.isError(v))
+                    paramSegment = `${(v.stack ?? v.message).replace(/^Error:\s?/i, '')}\n`;
+                else if (_.isString(v))
+                    paramSegment = `"${
+                        v.replace(/\\/g, '\\\\')
+                            .replace(/\"/g, '\\"')
+                            .replace(/\'/g, '\\\'')
+                            .replace(/\`/g, '\\`')
+                    }"`;
+                else if (_.isPlainObject(v))
+                    paramSegment = `${JSON.stringify(v)}`;
+                else
+                    paramSegment = `${v}`;
+    
+                // append to parameters string
+                paramsStr = `${paramsStr}${_.isEmpty(paramsStr) ? '' : ' '}${k}=${paramSegment}`;
+            }
+    
+            result = `${result.padEnd(this.padLength - 1)} ${paramsStr}`
         }
+    
+        return `${result}\n`;
+    };
+
+    private sendLogMsg(message: string, level: LogLevel, params?: LogParams): void {
+        const formattedMessage = this.formatLogMessage(level, message, this.logPrefix, params);
+        this.logBuffer.push(formattedMessage);
+
+        if (this.logLevel < level) return;
+        process.stderr.write(formattedMessage);
     }
 
-    private formatLogPrefix = (): string => !_.isNil(this.logPrefix) ? `${this.logPrefix} | ` : "";
+    private sendLogError(error: Error, message?: string, params?: LogParams): void {
+        let errorParams = params ?? {};
+        errorParams['error'] = error;
 
-    private sendLogMsg(message: string, level: LogLevel): void {
-        const prefix = this.formatLogPrefix();
-        process.stderr.write(`[${this.getLevelString(level)}] ${prefix}${message}\n`);
-        this.logBuffer.push(level, message, this.logPrefix);
+        const formattedMessage = this.formatLogMessage(LogLevel.ERROR, message ?? 'Error', this.logPrefix, errorParams);
+        this.logBuffer.push(formattedMessage);
+
+        if (this.logLevel < LogLevel.ERROR) return;
+        process.stderr.write(formattedMessage);
     }
 
-    private sendLogError(error: Error, level?: LogLevel, message?: string): void {
-        const prefix = this.formatLogPrefix();
-        if (_.isNil(message)) {
-            process.stderr.write(`[${this.getLevelString(level)}] ${prefix}${error.stack}\n`);
-        }
-        else {
-            process.stderr.write(`[${this.getLevelString(level)}] ${prefix}${message+":\n\n"}${error.stack}\n`);
-        }
+    Error = (error: Error, message?: string, params?: LogParams) => this.sendLogError(error, message, params);
 
-        this.logBuffer.pushError(error, message ?? "", this.logPrefix);
-    }
+    Warn = (message: string, params?: LogParams) => this.sendLogMsg(message, LogLevel.WARN, params);
 
-    Verbose(message: string) {
-        if (this.logLevel < LogLevel.TRACE) {
-            return;
-        }
+    Info = (message: string, params?: LogParams) => this.sendLogMsg(message, LogLevel.INFO, params);
 
-        this.sendLogMsg(message, LogLevel.TRACE);
-    }
+    Debug = (message: string, params?: LogParams) => this.sendLogMsg(message, LogLevel.DEBUG, params);
 
-    Debug(message: string) {
-        if (this.logLevel < LogLevel.DEBUG) {
-            return;
-        }
-
-        this.sendLogMsg(message, LogLevel.DEBUG);
-    }
-
-    Info(message: string) {
-        if (this.logLevel < LogLevel.INFO) {
-            return;
-        }
-
-        this.sendLogMsg(message, LogLevel.INFO);
-    }
-
-    Error(error: Error, message?: string) {
-        if (this.logLevel < LogLevel.ERROR) {
-            return;
-        }
-
-        this.sendLogError(error, LogLevel.ERROR, message);
-    }
-
-    Warn(message: string) {
-        if (this.logLevel < LogLevel.WARN) {
-            return;
-        }
-
-        this.sendLogMsg(message, LogLevel.WARN);
-    }
+    Verbose = (message: string, params?: LogParams) => this.sendLogMsg(message, LogLevel.TRACE, params);
 
     SetLogLevel(level: LogLevel) {
         this.logLevel = level;
