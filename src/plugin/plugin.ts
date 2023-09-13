@@ -229,20 +229,21 @@ export class Plugin implements IPublisherServer {
         // get schemas
         let response = new DiscoverSchemasResponse();
 
-        logger.Info('Schemas found: 1');
-        let schema = await GetAllSchemas(logger, serverStatus.settings, call.request.getSampleSize());
-        response.setSchemasList(schema);
+        let schemas = await GetAllSchemas(logger, serverStatus.settings, call.request.getSampleSize());
+        logger.Info(`Schemas found: ${schemas?.length ?? 0}`);
+        response.setSchemasList(schemas);
 
-        if (call.request.getMode() === DiscoverSchemasRequest.Mode.REFRESH)
-        {
-            let refreshSchemas = call.request.getToRefreshList();
-            // TODO: Refresh schema
+        // if (call.request.getMode() === DiscoverSchemasRequest.Mode.REFRESH)
+        // {
+        //     let refreshSchemas = call.request.getToRefreshList();
+        //     // TODO: Refresh schema
         
-            logger.Debug(`Schemas found: ${JSON.stringify([schema])}`);
-            logger.Debug(`Refresh requested on schema: ${JSON.stringify(refreshSchemas)}`);
-        }
+        //     logger.Debug(`Schemas found: ${schemas.map(s => s.toObject())}`);
+        //     logger.Debug(`Refresh requested on schema: ${JSON.stringify(refreshSchemas)}`);
+        //     return;
+        // }
 
-        logger.Info('Schemas returned: 1');
+        logger.Info(`Schemas returned: ${schemas?.length ?? 0}`);
         callback(null, response);
     }
 
