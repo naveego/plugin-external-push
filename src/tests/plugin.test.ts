@@ -1,4 +1,4 @@
-import _, { Dictionary, partial } from 'lodash';
+import _, { Dictionary } from 'lodash';
 import { describe, expect, test } from '@jest/globals';
 import http from 'http';
 import * as fs from 'fs';
@@ -17,8 +17,6 @@ import {
 import { Plugin } from '../plugin/plugin'
 import { PublisherClient } from '../proto/publisher_grpc_pb';
 import {
-    ConfigurationFormRequest,
-    ConfigureRealTimeRequest,
     ConfigureRequest,
     ConnectRequest,
     ConnectResponse,
@@ -37,7 +35,7 @@ import {
 import { InputSchemaProperty, Settings } from '../helper/settings';
 import { GetManifestSchemaJson, GetManifestUIJson } from '../api/read/manifest-schema-json';
 import path from 'path';
-import { RealTimeSettings, RealTimeState } from '../api/read/real-time-types';
+import { RealTimeSettings } from '../api/read/real-time-types';
 import { endpointPromise } from '../util/publisher-promises';
 import sleep from '../util/sleep';
 import moment from 'moment';
@@ -352,11 +350,9 @@ describe('plugin module', () => {
     };
 
     type MockRecordDataOutput = {
-        [K in keyof MockRecordData]: MockRecordData[K] extends Date
+        [K in keyof MockRecordData]: MockRecordData[K] extends object
             ? string
-            : MockRecordData[K] extends object
-                ? string
-                : MockRecordData[K];
+            : MockRecordData[K];
     };
 
     type PropValidator = (value: any) => boolean;
@@ -369,30 +365,29 @@ describe('plugin module', () => {
         id: v => _.isString(v),
         name: optionalProp(v => _.isString(v)),
         signed: optionalProp(v => _.isBoolean(v)),
-        json: optionalProp(v => _.isString(v)),
+        json: optionalProp(v => _.isPlainObject(v)),
         myInt: optionalProp(v => _.isSafeInteger(v)),
         myFloat: optionalProp(v => _.isNumber(v)),
         updatedAt: optionalProp(v => _.isString(v))
     };
 
     // use type guards instead of blind type casts
-    const isMockRecordDataOutput = (target: any): target is MockRecordDataOutput => {
-        let prop: keyof MockRecordDataOutputValidator;
-        for (prop in mockRecordDataOutputProps) {
-            const isValid = mockRecordDataOutputProps[prop];
-            if (!isValid(target?.[prop])) return false;
+    const expectMockRecordDataOutput = (target: any): target is MockRecordDataOutput => {
+        let key: keyof MockRecordDataOutputValidator;
+        for (key in mockRecordDataOutputProps) {
+            const isValid = mockRecordDataOutputProps[key];
+            const propValue = target?.[key];
+            if (!isValid(propValue)) {
+                throw new Error(`Invalid property at key \"${key}\", value: ${
+                    _.isString(propValue) ? `\"${propValue}\"` : propValue
+                }`);
+            }
         }
 
         const keys = _.keys(target);
-        if (keys.length !== 7) return false;
+        expect(keys.length).toBe(7);
 
         return true;
-    };
-
-    const expectMockRecordDataOutput = (target: any): target is MockRecordDataOutput => {
-        const isMatch = isMockRecordDataOutput(target);
-        expect(isMatch).toBe(true);
-        return isMatch;
     };
 
     test('read stream real time - post 1 record', async () => {
@@ -506,10 +501,10 @@ describe('plugin module', () => {
             expect(data.id).toBe(expectedRecord.id);
             expect(data.name).toBe(expectedRecord.name);
             expect(data.signed).toBe(expectedRecord.signed);
-            expect(data.json).toBe(JSON.stringify(expectedRecord.json));
+            expect(data.json).toStrictEqual(expectedRecord.json);
             expect(data.myInt).toBe(expectedRecord.myInt);
             expect(data.myFloat).toBe(expectedRecord.myFloat);
-            expect(data.updatedAt).toBe(moment(expectedRecord.updatedAt).toISOString());
+            expect(data.updatedAt).toBe(moment(expectedRecord.updatedAt).utc().toISOString());
         }
 
         // CLEANUP
@@ -671,7 +666,7 @@ describe('plugin module', () => {
                 const expectedRecord = expectedRecordsMap[data.id];
                 expect(expectedRecord).toBeTruthy();
 
-                expect(data.id).toBe(expectedRecord.id);
+                expect(data.id).toStrictEqual(expectedRecord.id);
                 expect(data.name).toBe(expectedRecord.name);
                 expect(data.signed).toBe(expectedRecord.signed);
 
@@ -839,8 +834,8 @@ describe('plugin module', () => {
                 expect(data.name).toBe(expectedRecord.name);
                 expect(data.signed).toBe(expectedRecord.signed);
 
-                expect(data.json).toBe(
-                    !!data.json ? JSON.stringify(expectedRecord.json) : null
+                expect(data.json).toStrictEqual(
+                    !!data.json ? expectedRecord.json : null
                 );
                 expect(data.myInt).toBe(
                     !!data.myInt ? expectedRecord.myInt : null
@@ -849,7 +844,7 @@ describe('plugin module', () => {
                     !!data.myFloat ? expectedRecord.myFloat : null
                 );
                 expect(data.updatedAt).toBe(
-                    !!data.updatedAt ? moment(expectedRecord.updatedAt).toISOString() : null
+                    !!data.updatedAt ? moment(expectedRecord.updatedAt).utc().toISOString() : null
                 );
 
                 if (!actualRecordIds.includes(data.id)) {

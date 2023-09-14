@@ -200,7 +200,7 @@ export class Logger {
                 paramsStr = `${paramsStr}${_.isEmpty(paramsStr) ? '' : ' '}${k}=${paramSegment}`;
             }
     
-            result = `${result.padEnd(this.padLength - 1)} ${paramsStr}`
+            result = `${result.padEnd(this.padLength - 5)}     ${paramsStr}`;
         }
     
         return `${result}\n`;

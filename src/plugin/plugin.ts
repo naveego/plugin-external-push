@@ -154,13 +154,13 @@ function buildRecordMap(
             switch (property.getType()) {
                 case PropertyType.DATETIME:
                     if (_.isDate(lookupValue) || _.isString(lookupValue))
-                        recordMap[propId] = moment(lookupValue).toISOString();
+                        recordMap[propId] = moment(lookupValue).utc().toISOString();
                     else
                         recordMap[propId] = null;
                     break;
                 case PropertyType.JSON:
                     if (_.isPlainObject(lookupValue))
-                        recordMap[propId] = JSON.stringify(lookupValue);
+                        recordMap[propId] = lookupValue;
                     else
                         recordMap[propId] = null;
                     break;
