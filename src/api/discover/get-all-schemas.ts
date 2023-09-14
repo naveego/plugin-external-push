@@ -40,7 +40,7 @@ export function GetType(dataType: string): PropertyType {
         case 'Date Time':
             return PropertyType.DATETIME;
         case 'JSON':
-            return PropertyType.TEXT;
+            return PropertyType.JSON;
         default:
             return PropertyType.STRING;
     }

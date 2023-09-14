@@ -52,6 +52,7 @@ import * as ReadConfig from '../api/read/real-time-configure-json';
 import { getAppRootDirectory } from '../main';
 import path from 'path';
 import { RealTimeSettings, RealTimeState } from '../api/read/real-time-types';
+import moment from 'moment';
 
 // global plugin constants
 let logger = new Logger();
@@ -142,33 +143,60 @@ function buildRecordMap(
     for (let i = 0; i < schema.getPropertiesList().length; i++) {
         const property = schema.getPropertiesList()[i];
         const propId = property.getId();
+        const lookupValue = data?.[propId];
+
+        if (_.isNil(lookupValue)) {
+            recordMap[propId] = null;
+            continue;
+        }
+
         try {
             switch (property.getType()) {
-                case PropertyType.STRING:
-                case PropertyType.TEXT:
-                case PropertyType.DECIMAL:
-                    var lookupValue = data?.[propId];
-                    if (lookupValue === undefined || lookupValue === null) {
+                case PropertyType.DATETIME:
+                    if (_.isDate(lookupValue) || _.isString(lookupValue))
+                        recordMap[propId] = moment(lookupValue).toISOString();
+                    else
                         recordMap[propId] = null;
-                    }
-                    else {
-                        recordMap[propId] = `${lookupValue}`;
-                    }
-                    
                     break;
+                case PropertyType.JSON:
+                    if (_.isPlainObject(lookupValue))
+                        recordMap[propId] = JSON.stringify(lookupValue);
+                    else
+                        recordMap[propId] = null;
+                    break;
+                case PropertyType.STRING:
+                    recordMap[propId] = `${lookupValue}`;
+                    break;
+                case PropertyType.INTEGER:
+                    if (_.isSafeInteger(lookupValue)) {
+                        recordMap[propId] = lookupValue;
+                        break;
+                    }
+                    else if (!_.isNumber(lookupValue)) {
+                        recordMap[propId] = null;
+                        break;
+                    }
                 default:
-                    recordMap[propId] = data?.[propId] ?? null;
+                    recordMap[propId] = lookupValue;
                     break;
             }
         }
-        catch (e: any) {
-            if (_.isError(e)) {
-                logger.Error(e, `No column with property id: ${propId}\n` + e.message);
-            }
-            else {
-                logger.Error(e, `No column with property id: ${propId}\n${e}`);
-            }
+        catch (err) {
+            let formatError: Error;
+            if (_.isError(err)) formatError = err;
+            else if (_.isString(err)) formatError = new Error(err);
+            else formatError = new Error();
+
             recordMap[propId] = null;
+            logger.Warn('Defaulting to null due to a parse error', {
+                ...logParams,
+                prop: property.getName() ?? `${i}`
+            });
+            logger.Debug('Error while building record map', {
+                ...logParams,
+                prop: property.getName() ?? `${i}`,
+                error: formatError
+            });
         }
     }
 
@@ -279,7 +307,6 @@ export class Plugin implements IPublisherServer {
             error ??= new Error('Only Real Time Read jobs are supported by this plugin (Job schedule)');
             logger.Error(error, 'Unable to start read stream', logParams);
             call.destroy(error);
-            throw error; // comment out when testing "read stream - fail"
         };
 
         logger.SetLogPrefix('read-stream');
