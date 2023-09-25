@@ -75,7 +75,7 @@ export async function CheckPortAvailability(settings: Settings, logger: Logger, 
             logger.Debug('Received null status code when making a request to the target endpoint', logParams);
             throw new Error();
         }
-        if (pluginResponse.statusCode < 200 || pluginResponse.statusCode >= 300) {
+        if (pluginResponse.statusCode !== 200) {
             logger.Debug(
                 `Received invalid status code ${pluginResponse.statusCode} when making a request to the target endpoint`,
                 logParams
