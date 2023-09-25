@@ -43,7 +43,7 @@ import {
 
 import { IPublisherServer } from '../proto/publisher_grpc_pb';
 import { LogParams, Logger } from '../logger/logger';
-import { Settings, ValidateSettings } from '../helper/settings';
+import { Settings, CheckPortAvailability, ValidateSettings } from '../helper/settings';
 import { ServerStatus } from '../helper/server-status';
 import * as fs from 'fs';
 import { GetAllSchemas } from '../api/discover/get-all-schemas';
@@ -51,14 +51,17 @@ import express from 'express';
 import * as ReadConfig from '../api/read/real-time-configure-json';
 import { getAppRootDirectory } from '../main';
 import path from 'path';
-import { RealTimeSettings, RealTimeState } from '../api/read/real-time-types';
+import { RealTimeSettings } from '../api/read/real-time-types';
 import moment from 'moment';
+import { AuthenticationMiddleware as JWTAuthenticationMiddleware } from '../api/read/authentication-middleware';
+import * as constants from '../constants';
 
 // global plugin constants
 let logger = new Logger();
 let serverStatus: ServerStatus = {
     connected: false,
     settings: {
+        connectionId: '',
         port: 0,
         tokenValidationEndpoint: '',
         inputSchema: []
@@ -73,23 +76,42 @@ function waitForDisconnect(): void {
     }
 }
 
-function connectImpl(request: ConnectRequest): ConnectResponse {
+function clearConnection(): void {
+    serverStatus?.expressServer?.close();
+
+    if (serverStatus.connected) {
+        serverStatus = {
+            connected: false,
+            settings: {
+                connectionId: '',
+                port: 0,
+                tokenValidationEndpoint: '',
+                inputSchema: [],
+            },
+            expressServer: undefined
+        };
+    
+        logger.Flush();
+    }
+}
+
+async function connectImpl(request: ConnectRequest): Promise<ConnectResponse> {
     logger.SetLogPrefix('connect');
     logger.Info('Connecting...');
 
     // validate settings passed in
     logger.Info('Validating settings');
+
+    let settings: Settings;
     try {
-        let settings: Settings = {
+        settings = {
+            connectionId: '',
             port: 0,
             tokenValidationEndpoint: '',
             inputSchema: []
         };
         let parsed = JSON.parse(request.getSettingsJson());
         Object.assign(settings, parsed);
-
-        // assign settings to global context
-        serverStatus.settings = settings;
     } catch (error: any) {
         logger.Error(error);
 
@@ -99,21 +121,24 @@ function connectImpl(request: ConnectRequest): ConnectResponse {
     }
 
     try {
-        ValidateSettings(serverStatus.settings);
-    } catch (error: any) {
+        ValidateSettings(settings);
+        await CheckPortAvailability(settings, logger);
+    }
+    catch (error: any) {
         logger.Error(error);
 
-        let response = new ConnectResponse();
-        response.setSettingsError(error.toString())
+        let response = new ConnectResponse()
+            .setSettingsError(error.toString());
         return response;
     }
 
+    // assign settings to global context
+    serverStatus.settings = settings;
     serverStatus.connected = true;
 
     logger.Info('Settings validated');
 
     let response = new ConnectResponse();
-
     return response;
 }
 
@@ -238,12 +263,12 @@ export class Plugin implements IPublisherServer {
         callback(null, new ConfigureResponse());
     }
 
-    connect(call: ServerUnaryCall<ConnectRequest, ConnectResponse>, callback: sendUnaryData<ConnectResponse>) {
-        callback(null, connectImpl(call.request));
+    async connect(call: ServerUnaryCall<ConnectRequest, ConnectResponse>, callback: sendUnaryData<ConnectResponse>) {
+        callback(null, await connectImpl(call.request));
     }
 
-    connectSession(call: ServerWritableStream<ConnectRequest, ConnectResponse>) {
-        call.write(connectImpl(call.request));
+    async connectSession(call: ServerWritableStream<ConnectRequest, ConnectResponse>) {
+        call.write(await connectImpl(call.request));
 
         // sit forever and don't block
         waitForDisconnect();
@@ -257,19 +282,9 @@ export class Plugin implements IPublisherServer {
         // get schemas
         let response = new DiscoverSchemasResponse();
 
-        let schemas = await GetAllSchemas(logger, serverStatus.settings, call.request.getSampleSize());
+        let schemas = await GetAllSchemas(serverStatus.settings);
         logger.Info(`Schemas found: ${schemas?.length ?? 0}`);
         response.setSchemasList(schemas);
-
-        // if (call.request.getMode() === DiscoverSchemasRequest.Mode.REFRESH)
-        // {
-        //     let refreshSchemas = call.request.getToRefreshList();
-        //     // TODO: Refresh schema
-        
-        //     logger.Debug(`Schemas found: ${schemas.map(s => s.toObject())}`);
-        //     logger.Debug(`Refresh requested on schema: ${JSON.stringify(refreshSchemas)}`);
-        //     return;
-        // }
 
         logger.Info(`Schemas returned: ${schemas?.length ?? 0}`);
         callback(null, response);
@@ -354,25 +369,44 @@ export class Plugin implements IPublisherServer {
             logParams['job_version'] = realTimeState.jobVersion;
         }
 
-        logger.Info(`Starting read stream...`, logParams);
-
         // close existing server if open
         if (serverStatus?.expressServer) {
             logger.Warn(`Server already running. Restarting...`, logParams);
             serverStatus?.expressServer?.close();
         }
 
+        // check port availability
+        const port = serverStatus.settings.port;
+        try {
+            await CheckPortAvailability(serverStatus.settings, logger, logParams);
+        }
+        catch (err: any) {
+            reportReadStreamError(err);
+            return;
+        }
+
+        logger.Info(`Starting read stream...`, logParams);
+
         // build express server
         const app = express();
-        const port = serverStatus.settings.port;
 
-        app.use(express.json());
+        // get token validation endpoint
+        const validationEndpoint = serverStatus?.settings?.tokenValidationEndpoint?.trim() ?? '';
+        app.use(
+            express.json(),
+            JWTAuthenticationMiddleware(validationEndpoint, logger, logParams)
+        );
+
+        app.get(constants.requestPaths.PluginInfo, (__, res) => {
+            const connectionId = serverStatus.settings.connectionId;
+            res.send(Buffer.from(`Name: ${connectionId}`));
+        });
 
         // Posting data to the agent
-        app.post('/externalpush', (req, res, next) => {
+        app.post(constants.requestPaths.ExternalPush, (req, res) => {
             try {
                 let data = req.body;
-                logger.Info(`Received post request`, logParams);
+                logger.Info('Received post request', logParams);
 
                 const recordMap = buildRecordMap(call, data, logParams);
 
@@ -390,12 +424,11 @@ export class Plugin implements IPublisherServer {
             catch (error: any) {
                 logger.Error(error, 'Post request resulted in an error', logParams);
                 res.sendStatus(500);
-                next(error);
             }
         });
 
         // Deleting data from the agent
-        app.delete('/externalpush', (req, res, next) => {
+        app.delete(constants.requestPaths.ExternalPush, (req, res) => {
             try {
                 // get input data
                 let data = req.body;
@@ -417,11 +450,8 @@ export class Plugin implements IPublisherServer {
             catch (error: any) {
                 logger.Error(error, 'Delete request resulted in an error', logParams);
                 res.sendStatus(500);
-                next(error);
             }
         });
-
-        //InjectAuthenticationMiddleware(app);
 
         app.on('exit', () => {
             logger.Info('input server stopped, ending read stream...', logParams);
@@ -432,6 +462,8 @@ export class Plugin implements IPublisherServer {
             catch (e) {
                 logger.Warn(`could not close read stream: ${e}`, logParams);
             }
+
+            clearConnection();
         });
 
         // start the express server
@@ -444,19 +476,7 @@ export class Plugin implements IPublisherServer {
         logger.SetLogPrefix('disconnect');
         logger.Info('Disconnecting...');
 
-        serverStatus?.expressServer?.close();
-
-        serverStatus = {
-            connected: false,
-            settings: {
-                port: 0,
-                tokenValidationEndpoint: '',
-                inputSchema: []
-            },
-            expressServer: undefined
-        };
-
-        logger.Flush();
+        clearConnection();
     
         callback(null, new DisconnectResponse());
     }

@@ -1,6 +1,5 @@
 import _, { Dictionary } from 'lodash';
 import { describe, expect, test } from '@jest/globals';
-import http from 'http';
 import * as fs from 'fs';
 
 import {
@@ -34,15 +33,20 @@ import {
 } from '../proto/publisher_pb';
 import { InputSchemaProperty, Settings } from '../helper/settings';
 import { GetManifestSchemaJson, GetManifestUIJson } from '../api/read/manifest-schema-json';
-import path from 'path';
 import { RealTimeSettings } from '../api/read/real-time-types';
 import { endpointPromise } from '../util/publisher-promises';
 import sleep from '../util/sleep';
 import moment from 'moment';
+import { readHttpResponse, sendHttpRequest } from '../util/http-request';
+import * as constants from '../constants';
+import { checkPortStatus } from 'portscanner';
+import path from 'path';
 
 let globalPort = -1;
 let globalServer: Server;
 let globalServerRunning: boolean = false;
+
+const pluginConnectionId = 'plugin-external-test';
 
 function startServerIfNotRunning() {
     if (!globalServerRunning) {
@@ -50,7 +54,7 @@ function startServerIfNotRunning() {
         const server = new Server();
 
         let ready = new Promise(resolve => {
-            server.bindAsync(`0.0.0.0:${0}`, ServerCredentials.createInsecure(), (err, port) => {
+            server.bindAsync(`0.0.0.0:${0}`, ServerCredentials.createInsecure(), (__, port) => {
                 server.addService(PublisherService, new Plugin());
                 server.start();
                 globalServerRunning = true;
@@ -88,9 +92,11 @@ function getDefaultSchemaProperties(): InputSchemaProperty[] {
     ];
 }
 
-function getConnectRequest(inputSchema?: InputSchemaProperty[]) {
+function getConnectRequest(port?: number, inputSchema?: InputSchemaProperty[]) {
+    port ??= 50001;
     let settings: Settings = {
-        port: 50001,
+        connectionId: pluginConnectionId,
+        port,
         tokenValidationEndpoint: '',
         inputSchema: inputSchema ?? getDefaultSchemaProperties()
     };
@@ -142,58 +148,65 @@ function getReadRequest(schema: Schema, channelName: string, isRealTime: boolean
 beforeAll(/* SETUP */ async () => await startServerIfNotRunning());
 afterAll(/* CLEANUP */ () => globalServer.forceShutdown());
 
-beforeEach(async () => await sleep(1200));
+beforeEach(async () => await sleep(2000));
 
 describe('config schema module', () => {
     // SETUP
     const expectedSchemaObject = {
-        'type': 'object',
-        'properties': {
-            'port': {
-                'type': 'integer',
-                'title': 'Port'
+        "type": "object",
+        "properties": {
+            "connectionId": {
+                "type": "string",
+                "title": "Connection ID",
+                "description": "A unique identifier for this connection"
             },
-            'tokenValidationEndpoint': {
-                'type': 'string',
-                'title': 'Token Validation Endpoint'
+            "port": {
+                "type": "integer",
+                "title": "Port"
             },
-            'inputSchema': {
-                'type': 'array',
-                'title': 'Input Schema',
-                'items': {
-                    'type': 'object',
-                    'properties': {
-                        'propertyName': {
-                            'type': 'string',
-                            'title': 'Property Name'
+            "tokenValidationEndpoint": {
+                "type": "string",
+                "title": "Token Validation Endpoint"
+            },
+            "inputSchema": {
+                "type": "array",
+                "title": "Input Schema",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "propertyName": {
+                            "type": "string",
+                            "title": "Property Name"
                         },
-                        'propertyType': {
-                            'type': 'string',
-                            'title': 'Property Type',
-                            'enum': [
-                                'String',
-                                'Integer',
-                                'Float',
-                                'Boolean',
-                                'Date Time',
-                                'JSON'
+                        "propertyType": {
+                            "type": "string",
+                            "title": "Property Type",
+                            "enum": [
+                                "String",
+                                "Integer",
+                                "Float",
+                                "Boolean",
+                                "Date Time",
+                                "JSON"
                             ]
                         }
                     }
                 }
             }
         },
-        'required': [
-            'port',
-            'inputSchema'
+        "required": [
+            "connectionId",
+            "port",
+            "inputSchema"
         ]
     };
 
     const expectedUIObject = {
         'ui:order': [
-          'port',
-          'tokenValidationEndpoint',
-          'inputSchema'
+            'connectionId',
+            'port',
+            'tokenValidationEndpoint',
+            'inputSchema'
         ]
     };
 
@@ -247,10 +260,16 @@ describe('plugin module', () => {
 
         // ACT
         let configureRequest = getConfigureRequest();
-        await endpointPromise(client, client.configure, configureRequest);
+        await endpointPromise(client, client.configure, configureRequest).then(() => sleep(500));
+
+        // === PATHS ===
+        // __dirname:   /home/ubuntu/Projects/naveego/plugin-external-push/build/src/tests
+        // target:      /home/ubuntu/Projects/naveego/plugin-external-push
 
         // ASSERT
-        const pathExists = (folderName: string) => fs.existsSync(path.join(__dirname, '..', '..', folderName));
+        const pathExists = (folderName: string) => fs.existsSync(
+            path.join(__dirname, '..', '..', '..', folderName)
+        );
         expect(pathExists('agent-directories/Logs')).toBe(true);
         expect(pathExists('agent-directories/Perm')).toBe(true);
         expect(pathExists('agent-directories/Temp')).toBe(true);
@@ -390,6 +409,85 @@ describe('plugin module', () => {
         return true;
     };
 
+    test('read stream real time - get plugin info', async () => {
+        // SETUP
+        let client = getGrpcClient();
+
+        let connectRequest = getConnectRequest();
+        await endpointPromise(client, client.connect, connectRequest);
+
+        let settings: Settings = JSON.parse(connectRequest.getSettingsJson());
+
+        let discoverRequest = getDiscoverSchemasRequest();
+        let discoverResponse = await endpointPromise<
+            DiscoverSchemasRequest,
+            DiscoverSchemasResponse
+        >(client, client.discoverSchemas, discoverRequest);
+
+        let responseStream: ClientReadableStream<Record>;
+        let schema = discoverResponse.getSchemasList()[0];
+
+        let readRequest = getReadRequest(schema, 'getInfo');
+
+        try {
+            responseStream = client.readStream(readRequest);
+        }
+        catch (err) {
+            console.error('Error in read stream: ', err);
+            throw err;
+        }
+
+        // ACT
+        let statusCode = -1;
+        let actualConnectionId = '';
+
+        responseStream.on('error', (err: Error) => {
+            if (!err.message.includes('CANCELLED: Call cancelled')) {
+                console.log(err);
+            }
+        });
+
+        const timeStart = Date.now();
+        const getTask = async () => {
+            const status = await checkPortStatus(settings.port);
+            expect(status).toBe('open');
+
+            // post 1 record
+            const response = await sendHttpRequest({
+                ...constants.requestOptions.GetPluginInfo,
+                timeout: 1000
+            });
+            statusCode = response.statusCode ?? -1;
+
+            const body = await readHttpResponse(response);
+            if (_.isString(body)) {
+                actualConnectionId = body.slice(6);
+            }
+        };
+
+        // wait for records to come in
+        await sleep(2000).then(getTask);
+
+        const timeEnd = Date.now();
+        const durationSeconds = Math.round((timeEnd - timeStart) / 10) / 100;
+        console.log(`Waited ${durationSeconds} second${(durationSeconds === 1) ? '' : 's'} for read stream to finish`);
+
+        // ASSERT
+        expect(statusCode).toBe(200);
+        expect(actualConnectionId).toBe(pluginConnectionId);
+
+        // CLEANUP
+        responseStream.destroy();
+        await sleep(2000);
+
+        try {
+            await endpointPromise(client, client.disconnect, new DisconnectRequest());
+        }
+        catch (err) {
+            console.warn(`Error when attempting to disconnect:\n${err}`);
+        }
+    }, 180 * 1000);
+
     test('read stream real time - post 1 record', async () => {
         // SETUP
         const expectedRecord: MockRecordData = {
@@ -446,40 +544,19 @@ describe('plugin module', () => {
         const timeStart = Date.now();
         const postTask = async () => {
             // post 1 record
-            const requestBody = JSON.stringify(expectedRecord);
-
-            const request = http.request(
+            const response = await sendHttpRequest(
                 {
-                    hostname: 'localhost',
-                    port: 50001,
-                    path: '/externalpush',
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Content-Length': Buffer.byteLength(requestBody),
-                    },
-                    timeout: 15000
+                    ...constants.requestOptions.PostRecord,
+                    timeout: 1000
                 },
-                res => {
-                    console.log(`Received Status: ${res.statusCode}`);
-                    res.setEncoding('utf8');
-
-                    if (!!res.statusCode) {
-                        statusCode = res.statusCode;
-                    }
-                }
+                JSON.stringify(expectedRecord)
             );
 
-            request.write(requestBody);
-            request.end();
-            
-            for (let i = 0; i < 15 && statusCode < 0; i++) {
-                await sleep(1000);
-            }
+            statusCode = response.statusCode ?? -1;
         };
 
         // wait for records to come in
-        await sleep(5000).then(postTask);
+        await sleep(2000).then(postTask).then(() => sleep(500));
 
         const timeEnd = Date.now();
         const durationSeconds = Math.round((timeEnd - timeStart) / 10) / 100;
@@ -601,39 +678,12 @@ describe('plugin module', () => {
         let timeStart = Date.now();
         let postTask = async (data: MockRecordData) => {
             // post 1 record
-            const requestBody = JSON.stringify(data);
-
-            let statusCode = -1;
-            const request = http.request(
-                {
-                    hostname: 'localhost',
-                    port: 50001,
-                    path: '/externalpush',
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Content-Length': Buffer.byteLength(requestBody),
-                    },
-                    timeout: 15000
-                },
-                res => {
-                    console.log(`Received Status: ${res.statusCode}`);
-                    res.setEncoding('utf8');
-
-                    if (!!res.statusCode) {
-                        statusCode = res.statusCode;
-                    }
-                }
+            const response = await sendHttpRequest(
+                constants.requestOptions.PostRecord,
+                JSON.stringify(data)
             );
 
-            request.write(requestBody);
-            request.end();
-            
-            for (let i = 0; i < 15 && statusCode < 0; i++) {
-                await sleep(1000);
-            }
-
-            if (statusCode !== 200) throw new Error(`Expected status code 200; received code ${statusCode}`);
+            expect(response.statusCode).toBe(200);
         };
 
         // wait for records to come in
@@ -765,39 +815,12 @@ describe('plugin module', () => {
         let timeStart = Date.now();
         let deleteTask = async (data: MockRecordData) => {
             // delete 1 record
-            const requestBody = JSON.stringify(data);
-
-            let statusCode = -1;
-            const request = http.request(
-                {
-                    hostname: 'localhost',
-                    port: 50001,
-                    path: '/externalpush',
-                    method: 'DELETE',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Content-Length': Buffer.byteLength(requestBody),
-                    },
-                    timeout: 15000
-                },
-                res => {
-                    console.log(`Received Status: ${res.statusCode}`);
-                    res.setEncoding('utf8');
-
-                    if (!!res.statusCode) {
-                        statusCode = res.statusCode;
-                    }
-                }
+            const response = await sendHttpRequest(
+                constants.requestOptions.DeleteRecord,
+                JSON.stringify(data)
             );
 
-            request.write(requestBody);
-            request.end();
-            
-            for (let i = 0; i < 15 && statusCode < 0; i++) {
-                await sleep(1000);
-            }
-
-            if (statusCode !== 200) throw new Error(`Expected status code 200; received code ${statusCode}`);
+            expect(response.statusCode).toBe(200);
         };
 
         // wait for records to come in
@@ -864,6 +887,86 @@ describe('plugin module', () => {
         }
         catch (err) {
             console.warn(`Error when attempting to disconnect:\n${err}`);
+        }
+    }, 15 * 1000);
+
+    test('read stream real time - reconnect', async () => {
+        try {
+            // SETUP
+            var client: PublisherClient | undefined = undefined;
+            client = getGrpcClient();
+
+            let connectRequest = getConnectRequest();
+            await endpointPromise(client, client.connect, connectRequest);
+
+            let discoverRequest = getDiscoverSchemasRequest();
+            let discoverResponse = await endpointPromise<
+                DiscoverSchemasRequest,
+                DiscoverSchemasResponse
+            >(client, client.discoverSchemas, discoverRequest);
+
+            var responseStream: ClientReadableStream<Record> | undefined = undefined;
+            let schema = discoverResponse.getSchemasList()[0];
+
+            let readRequest = getReadRequest(schema, 'read-reconnect');
+
+            try {
+                responseStream = client.readStream(readRequest);
+            }
+            catch (err) {
+                console.error('Error in read stream: ', err);
+                throw err;
+            }
+
+            // ACT
+            responseStream.on('error', (err: Error) => {
+                if (!err.message.includes('CANCELLED: Call cancelled')) {
+                    console.log(err);
+                }
+            });
+
+            const timeStart = Date.now();
+
+            // wait for records to come in
+            const samePortResult = await Promise.race([
+                sleep(500),
+                endpointPromise<ConnectRequest, ConnectResponse>(client, client.connect, connectRequest)
+            ]);
+
+            await sleep(500);
+
+            let connectRequest2 = getConnectRequest(50005);
+            const otherPortResult = await Promise.race([
+                sleep(2000),
+                endpointPromise<ConnectRequest, ConnectResponse>(client, client.connect, connectRequest2)
+            ]);
+
+            const timeEnd = Date.now();
+            const durationSeconds = Math.round((timeEnd - timeStart) / 10) / 100;
+            console.log(`Waited ${durationSeconds} second${(durationSeconds === 1) ? '' : 's'} for reconnect finish`);
+
+            // ASSERT
+            if (!_.isObject(samePortResult)) throw new Error('Reconnect 1 timed out');
+            if (!_.isObject(otherPortResult)) throw new Error('Reconnect 2 timed out');
+
+            expect(samePortResult).toBeTruthy();
+            expect(otherPortResult).toBeTruthy();
+        }
+        finally {
+            // CLEANUP
+            if (!!responseStream) {
+                responseStream.destroy();
+                await sleep(2000);
+            }
+
+            if (!!client) {
+                try {
+                    await endpointPromise(client, client.disconnect, new DisconnectRequest());
+                }
+                catch (err) {
+                    console.warn(`Error when attempting to disconnect:\n${err}`);
+                }
+            }
         }
     }, 15 * 1000);
 

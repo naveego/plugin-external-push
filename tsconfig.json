@@ -1,13 +1,19 @@
 {
   "compilerOptions": {
     "target": "es5",
-    "module": "commonjs",
     "lib": ["es6", "DOM"],
     "allowJs": true,
     "outDir": "build",
     "strict": true,
     "noImplicitAny": true,
     "esModuleInterop": true,
-    "resolveJsonModule": true
-  }
+    "resolveJsonModule": true,
+    "typeRoots": ["node_modules/@types", "types"],
+    "types": ["node", "jest"],
+    "composite": true,
+    "declarationMap": true,
+    "sourceMap": true
+  },
+  "exclude": ["node_modules", "build", "dist"],
+  "include": ["**/*.ts", "./src/proto/*"]
 }

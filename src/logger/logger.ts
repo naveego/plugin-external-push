@@ -20,7 +20,7 @@ class LogBuffer {
     private formatter: LogFormatter;
 
     constructor() {
-        this.formatter = (entry) => `${moment(entry.time).toISOString()} || ${entry.message}`;
+        this.formatter = (entry) => `|${moment(entry.time).toISOString()}| ${entry.message}`;
     }
 
     init(

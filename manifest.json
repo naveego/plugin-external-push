@@ -34,6 +34,7 @@
   "configSchema": {
     "ui": {
       "ui:order": [
+        "connectionId",
         "port",
         "tokenValidationEndpoint",
         "inputSchema"
@@ -42,6 +43,11 @@
     "schema": {
       "type": "object",
       "properties": {
+        "connectionId": {
+          "type": "string",
+          "title": "Connection ID",
+          "description": "A unique identifier for this connection"
+        },
         "port": {
           "type": "integer",
           "title": "Port"
@@ -77,6 +83,7 @@
         }
       },
       "required": [
+        "connectionId",
         "port",
         "inputSchema"
       ]

@@ -1,6 +1,11 @@
 import _ from 'lodash';
+import { LogParams, Logger } from '../logger/logger';
+import { checkPortStatus } from 'portscanner';
+import { readHttpResponse, sendHttpRequest } from '../util/http-request';
+import * as constants from '../constants';
 
 export interface Settings {
+    connectionId: string;
     port: number;
     tokenValidationEndpoint: string;
     inputSchema: InputSchemaProperty[];
@@ -11,9 +16,16 @@ export interface InputSchemaProperty {
     propertyType: string;
 }
 
-export function ValidateSettings(settings: Settings): boolean {
-    if (!settings.port) {
+export function ValidateSettings(settings: Settings): void {
+    if (_.isEmpty(settings.connectionId)) {
+        throw new Error('Connection ID is undefined');
+    }
+
+    if (_.isNil(settings.port)) {
         throw new Error('Port is undefined');
+    }
+    else if (settings.port <= 0) {
+        throw new Error('Invalid port number');
     }
 
     if (settings.inputSchema.length <= 0) {
@@ -37,11 +49,55 @@ export function ValidateSettings(settings: Settings): boolean {
     });
 
     if (settings.tokenValidationEndpoint) {
-        let urlRegex = new RegExp(/^((https|http):\/\/)?(www.)?[a-z0-9]+(.[a-z]{2,}){1,3}(#?\/?[a-zA-Z0-9#]+)*\/?(?:[a-zA-Z0-9-_]+=[a-zA-Z0-9-%]+&?)?$/);
+        let urlRegex = new RegExp(/^(https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|www\.[a-zA-Z0-9][a-zA-Z0-9-]+[a-zA-Z0-9]\.[^\s]{2,}|https?:\/\/(?:www\.|(?!www))[a-zA-Z0-9]+\.[^\s]{2,}|www\.[a-zA-Z0-9]+\.[^\s]{2,})$/);
         if (!urlRegex.test(settings.tokenValidationEndpoint)) {
             throw new Error('Token validation endpoint is not a valid URL');
         }
     }
+}
 
-    return true;
+export async function CheckPortAvailability(settings: Settings, logger: Logger, logParams?: LogParams): Promise<void> {
+    if (!settings.port) {
+        throw new Error('Port is undefined');
+    }
+
+    const portStatus = await checkPortStatus(settings.port);
+    logger.Debug(`Port check - localhost:${settings.port} is ${portStatus.toUpperCase()}`, logParams);
+
+    if (portStatus === 'closed') return;
+
+    try {
+        const pluginResponse = await sendHttpRequest({
+            ...constants.requestOptions.GetPluginInfo,
+            port: settings.port
+        });
+        if (_.isNil(pluginResponse.statusCode)) {
+            logger.Debug('Received null status code when making a request to the target endpoint', logParams);
+            throw new Error();
+        }
+        if (pluginResponse.statusCode < 200 || pluginResponse.statusCode >= 300) {
+            logger.Debug(
+                `Received invalid status code ${pluginResponse.statusCode} when making a request to the target endpoint`,
+                logParams
+            );
+            throw new Error();
+        }
+
+        const body = await readHttpResponse(pluginResponse);
+
+        if (_.isString(body)) {
+            if (body.startsWith('Name: ')) {
+                const connection_id = body.slice(6);
+                if (!_.isEmpty(connection_id) && connection_id === settings.connectionId) {
+                    return;
+                }
+            }
+        }
+
+        logger.Debug('Got valid response, but was unable to parse it', logParams);
+        throw new Error();
+    }
+    catch (err) {
+        throw new Error(`Address localhost:${settings.port} is already being used`);
+    }
 }
