@@ -969,48 +969,4 @@ describe('plugin module', () => {
             }
         }
     }, 15 * 1000);
-
-    // test('read stream - fail', async () => {
-    //     // SETUP
-    //     let client = getGrpcClient();
-
-    //     let connectRequest = getConnectRequest();
-    //     await endpointPromise(client, client.connect, connectRequest);
-
-    //     let discoverRequest = getDiscoverSchemasRequest();
-    //     let discoverResponse = await endpointPromise<
-    //         DiscoverSchemasRequest,
-    //         DiscoverSchemasResponse
-    //     >(client, client.discoverSchemas, discoverRequest);
-
-    //     let responseStream: ClientReadableStream<Record> | undefined = undefined;
-    //     let schema = discoverResponse.getSchemasList()[0];
-
-    //     let readRequest = getReadRequest(schema, 'post1', false);
-
-    //     // ACT
-    //     const timeStart = Date.now();
-    //     responseStream = client.readStream(readRequest);
-        
-    //     // ASSERT
-    //     responseStream.on('error', err => {
-    //         if (err.message.includes('CANCELLED: Call cancelled')) return;
-
-    //         const timeEnd = Date.now();
-    //         const durationSeconds = Math.round((timeEnd - timeStart) / 10) / 100;
-    //         console.log(`Waited ${durationSeconds} second${(durationSeconds === 1) ? '' : 's'} for read stream to throw`);
-    //         expect(err.message).toBe('2 UNKNOWN: Only Real Time Read jobs are supported by this plugin (Job schedule)');
-    //     });
-
-    //     await sleep(2000);
-
-    //     // CLEANUP
-    //     if (responseStream) { responseStream.destroy(); }
-    //     try {
-    //         await endpointPromise(client, client.disconnect, new DisconnectRequest());
-    //     }
-    //     catch (err) {
-    //         console.warn(`Error when attempting to disconnect:\n${err}`);
-    //     }
-    // }, 15 * 1000);
 });

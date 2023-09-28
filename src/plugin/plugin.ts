@@ -301,16 +301,38 @@ export class Plugin implements IPublisherServer {
 
         let configFormResponse = new ConfigurationFormResponse();
 
-        // TODO: Validate data and state json
-        let dataJson = call.request.getForm()?.getDataJson() ?? '';
-        let stateJson = call.request.getForm()?.getStateJson() ?? '';
+        let dataJson: any = {};
+        let stateJson: any = {};
+        let realTimeErrors: Error[] = [];
+        try {
+            dataJson = JSON.parse(call.request.getForm()?.getDataJson() ?? '{}');
+            stateJson = JSON.parse(call.request.getForm()?.getStateJson() ?? '{}');
+        }
+        catch (ex) {
+            let debugMsg = 'Error encountered when attempting to parse data and state JSON';
+            if (_.isError(ex)) logger.Debug(debugMsg, { error: ex });
+            else logger.Debug(debugMsg, { error: new Error(`${ex}`) });
 
-        configFormResponse.setDataJson(dataJson);
+            let loggedError = new Error('Unable to parse incoming form data');
+            logger.Error(loggedError, 'Error while validating real time form');
+            realTimeErrors.push(loggedError);
+        }
+
+        if (realTimeErrors.length == 0) {
+            let channelName = dataJson?.['channelName'] ?? '';
+            if (_.isNil(channelName) || !_.isString(channelName) || _.isEmpty(channelName)) {
+                let loggedError = new Error('Channel name is required');
+                logger.Error(loggedError, 'Error while validating real time form');
+                realTimeErrors.push(loggedError);
+            }
+        }
+
+        configFormResponse.setDataJson(JSON.stringify(dataJson));
         configFormResponse.setDataErrorsJson('');
-        configFormResponse.setErrorsList([]);
+        configFormResponse.setErrorsList(realTimeErrors.map(e => e.message));
         configFormResponse.setSchemaJson(schemaJson);
         configFormResponse.setUiJson(uiJson);
-        configFormResponse.setStateJson(stateJson);
+        configFormResponse.setStateJson(JSON.stringify(stateJson));
 
         response.setForm(configFormResponse);
 

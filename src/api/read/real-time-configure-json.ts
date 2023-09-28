@@ -2,8 +2,8 @@ export const GetSchemaJson = () => JSON.stringify({
     "type": "object",
     "properties": {
         "channelName": {
-        "type": "string",
-        "title": "Channel name"
+            "type": "string",
+            "title": "Channel name"
         }
     },
     "required": [
