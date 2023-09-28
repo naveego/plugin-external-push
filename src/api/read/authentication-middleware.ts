@@ -1,8 +1,8 @@
-import _ from "lodash";
-import { ExpressMiddleware } from "../../util/express-middleware";
+import _ from 'lodash';
+import { ExpressMiddleware } from '../../util/express-middleware';
 import jwt from 'jsonwebtoken';
 import JwksRsa, { JwksClient } from 'jwks-rsa';
-import { LogParams, Logger } from "../../logger/logger";
+import { LogParams, Logger } from '../../logger/logger';
 import * as constants from '../../constants';
 
 let jwksClient: JwksClient | undefined = undefined;
@@ -72,7 +72,7 @@ export const AuthenticationMiddleware = (
         try {
             const signingKey = await jwksClient.getSigningKey(decodedToken.header.kid);
             jwt.verify(encodedToken, signingKey.getPublicKey(), {
-                algorithms: ["RS256"],
+                algorithms: ['RS256'],
             });
         }
         catch {

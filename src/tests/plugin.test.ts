@@ -153,51 +153,51 @@ beforeEach(async () => await sleep(2000));
 describe('config schema module', () => {
     // SETUP
     const expectedSchemaObject = {
-        "type": "object",
-        "properties": {
-            "connectionId": {
-                "type": "string",
-                "title": "Connection ID",
-                "description": "A unique identifier for this connection"
+        'type': 'object',
+        'properties': {
+            'connectionId': {
+                'type': 'string',
+                'title': 'Connection ID',
+                'description': 'A unique identifier for this connection'
             },
-            "port": {
-                "type": "integer",
-                "title": "Port"
+            'port': {
+                'type': 'integer',
+                'title': 'Port'
             },
-            "tokenValidationEndpoint": {
-                "type": "string",
-                "title": "Token Validation Endpoint"
+            'tokenValidationEndpoint': {
+                'type': 'string',
+                'title': 'Token Validation Endpoint'
             },
-            "inputSchema": {
-                "type": "array",
-                "title": "Input Schema",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "propertyName": {
-                            "type": "string",
-                            "title": "Property Name"
+            'inputSchema': {
+                'type': 'array',
+                'title': 'Input Schema',
+                'items': {
+                    'type': 'object',
+                    'properties': {
+                        'propertyName': {
+                            'type': 'string',
+                            'title': 'Property Name'
                         },
-                        "propertyType": {
-                            "type": "string",
-                            "title": "Property Type",
-                            "enum": [
-                                "String",
-                                "Integer",
-                                "Float",
-                                "Boolean",
-                                "Date Time",
-                                "JSON"
+                        'propertyType': {
+                            'type': 'string',
+                            'title': 'Property Type',
+                            'enum': [
+                                'String',
+                                'Integer',
+                                'Float',
+                                'Boolean',
+                                'Date Time',
+                                'JSON'
                             ]
                         }
                     }
                 }
             }
         },
-        "required": [
-            "connectionId",
-            "port",
-            "inputSchema"
+        'required': [
+            'connectionId',
+            'port',
+            'inputSchema'
         ]
     };
 

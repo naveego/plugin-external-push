@@ -1,18 +1,18 @@
 export const GetSchemaJson = () => JSON.stringify({
-    "type": "object",
-    "properties": {
-        "channelName": {
-            "type": "string",
-            "title": "Channel name"
+    'type': 'object',
+    'properties': {
+        'channelName': {
+            'type': 'string',
+            'title': 'Channel name'
         }
     },
-    "required": [
-        "channelName"
+    'required': [
+        'channelName'
     ]
 });
 
 export const GetUIJson = () => JSON.stringify({
-    "ui:order": [
-        "channelName"
+    'ui:order': [
+        'channelName'
     ]
 });
