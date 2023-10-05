@@ -46,15 +46,17 @@
         "connectionId": {
           "type": "string",
           "title": "Connection ID",
-          "description": "A unique identifier for this connection"
+          "description": "A unique identifier for the connection."
         },
         "port": {
           "type": "integer",
-          "title": "Port"
+          "title": "Port",
+          "description": "The port number on which the External Push API connection will accept requests. The port number must not be in use by any other application on the server. Each connection will only support a single input job."
         },
         "tokenValidationEndpoint": {
           "type": "string",
-          "title": "Token Validation Endpoint"
+          "title": "Token Validation Endpoint",
+          "description": "The Token Validation Endpoint must be a valid JWKS endpoint. When this field is populated, the External Push Plugin connection will only accept authenticated bearer token requests using the Authorization header."
         },
         "inputSchema": {
           "type": "array",
