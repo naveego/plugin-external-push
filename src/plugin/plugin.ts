@@ -142,7 +142,7 @@ async function connectImpl(request: ConnectRequest): Promise<ConnectResponse> {
     return response;
 }
 
-function buildRecordMap(
+function validateRecordMap(
     call: ServerWritableStream<ReadRequest, Record>,
     data: any,
     logParams?: LogParams
@@ -175,53 +175,50 @@ function buildRecordMap(
             continue;
         }
 
-        try {
-            switch (property.getType()) {
-                case PropertyType.DATETIME:
-                    if (_.isDate(lookupValue) || _.isString(lookupValue))
-                        recordMap[propId] = moment(lookupValue).utc().toISOString();
-                    else
-                        recordMap[propId] = null;
-                    break;
-                case PropertyType.JSON:
-                    if (_.isPlainObject(lookupValue))
-                        recordMap[propId] = lookupValue;
-                    else
-                        recordMap[propId] = null;
-                    break;
-                case PropertyType.STRING:
-                    recordMap[propId] = `${lookupValue}`;
-                    break;
-                case PropertyType.INTEGER:
-                    if (_.isSafeInteger(lookupValue)) {
-                        recordMap[propId] = lookupValue;
-                        break;
-                    }
-                    else if (!_.isNumber(lookupValue)) {
-                        recordMap[propId] = null;
-                        break;
-                    }
-                default:
+        switch (property.getType()) {
+            case PropertyType.DATETIME:
+                if (_.isDate(lookupValue) || _.isString(lookupValue))
+                    recordMap[propId] = moment(lookupValue).utc().toISOString();
+                else {
+                    error = new Error(`${propId} was marked as DATETIME, but had value ${lookupValue}`);
+                    throw error;
+                }
+                break;
+            case PropertyType.JSON:
+                if (_.isPlainObject(lookupValue))
                     recordMap[propId] = lookupValue;
-                    break;
-            }
-        }
-        catch (err) {
-            let formatError: Error;
-            if (_.isError(err)) formatError = err;
-            else if (_.isString(err)) formatError = new Error(err);
-            else formatError = new Error();
-
-            recordMap[propId] = null;
-            logger.Warn('Defaulting to null due to a parse error', {
-                ...logParams,
-                prop: property.getName() ?? `${i}`
-            });
-            logger.Debug('Error while building record map', {
-                ...logParams,
-                prop: property.getName() ?? `${i}`,
-                error: formatError
-            });
+                else {
+                    error = new Error(`${propId} was marked as JSON, but had value ${lookupValue}`);
+                    throw error;
+                }
+                break;
+            case PropertyType.STRING:
+                if (_.isString(lookupValue))
+                    recordMap[propId] = lookupValue;
+                else {
+                    error = new Error(`${propId} was marked as STRING, but had value ${lookupValue}`);
+                    throw error;
+                }
+                break;
+            case PropertyType.INTEGER:
+                if (_.isSafeInteger(lookupValue))
+                    recordMap[propId] = lookupValue;
+                else {
+                    error = new Error(`${propId} was marked as INTEGER, but had value ${lookupValue}`);
+                    throw error;
+                }
+                break;
+            case PropertyType.FLOAT:
+                if (_.isNumber(lookupValue))
+                    recordMap[propId] = lookupValue;
+                else {
+                    error = new Error(`${propId} was marked as FLOAT, but had value ${lookupValue}`);
+                    throw error;
+                }
+                break;
+            default:
+                recordMap[propId] = lookupValue;
+                break;
         }
     }
 
@@ -430,11 +427,11 @@ export class Plugin implements IPublisherServer {
                 let data = req.body;
                 logger.Info('Received post request', logParams);
 
-                const recordMap = buildRecordMap(call, data, logParams);
+                const recordMap = validateRecordMap(call, data, logParams);
 
                 let record = new Record();
                 record.setAction(Record.Action.UPSERT);
-                record.setDataJson(JSON.stringify(recordMap));
+                record.setDataJson(JSON.stringify(data));
 
                 // upload record to agent
                 logger.Info('Sent record for Upsert', logParams);
@@ -445,6 +442,10 @@ export class Plugin implements IPublisherServer {
             }
             catch (error: any) {
                 logger.Error(error, 'Post request resulted in an error', logParams);
+                let data = req.body;
+                let record = new Record();
+                record.setAction(Record.Action.UPSERT);
+                record.setDataJson(JSON.stringify(data));
                 res.sendStatus(500);
             }
         });
@@ -456,7 +457,7 @@ export class Plugin implements IPublisherServer {
                 let data = req.body;
                 logger.Info('Received delete request', logParams);
                 
-                const recordMap = buildRecordMap(call, data, logParams);
+                const recordMap = validateRecordMap(call, data, logParams);
 
                 let record = new Record();
                 record.setAction(Record.Action.DELETE);
@@ -471,6 +472,10 @@ export class Plugin implements IPublisherServer {
             }
             catch (error: any) {
                 logger.Error(error, 'Delete request resulted in an error', logParams);
+                let data = req.body;
+                let record = new Record();
+                record.setAction(Record.Action.UPSERT);
+                record.setDataJson(JSON.stringify(data));
                 res.sendStatus(500);
             }
         });

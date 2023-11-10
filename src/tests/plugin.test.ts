@@ -154,6 +154,7 @@ describe('config schema module', () => {
     // SETUP
     const expectedSchemaObject = {
         'type': 'object',
+        'description': 'Only the Real Time Read schedule is supported by this plugin.',
         'properties': {
             'connectionId': {
                 'type': 'string',
@@ -270,7 +271,7 @@ describe('plugin module', () => {
 
         // ASSERT
         const pathExists = (folderName: string) => fs.existsSync(
-            path.join(__dirname, '..', '..', '..', folderName)
+            path.join(__dirname, '..', '..', folderName)
         );
         expect(pathExists('agent-directories/Logs')).toBe(true);
         expect(pathExists('agent-directories/Perm')).toBe(true);
