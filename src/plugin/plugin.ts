@@ -163,7 +163,7 @@ function validateRecordMap(
     }
 
     // build record
-    logger.Info('Building record...', logParams);
+    logger.Info('Validating record...', logParams);
     let recordMap: Dictionary<any> = {};
     for (let i = 0; i < schema.getPropertiesList().length; i++) {
         const property = schema.getPropertiesList()[i];
@@ -177,10 +177,11 @@ function validateRecordMap(
 
         switch (property.getType()) {
             case PropertyType.DATETIME:
-                if (_.isDate(lookupValue) || _.isString(lookupValue))
-                    recordMap[propId] = moment(lookupValue).utc().toISOString();
+                let date = moment(lookupValue)
+                if (date.isValid())
+                    recordMap[propId] = date.utc().toISOString();
                 else {
-                    error = new Error(`${propId} was marked as DATETIME, but had value ${lookupValue}`);
+                    error = new Error(`${propId} was marked as DATETIME, but had type "${typeof(lookupValue)}" and value "${lookupValue}"`);
                     throw error;
                 }
                 break;
@@ -188,7 +189,7 @@ function validateRecordMap(
                 if (_.isPlainObject(lookupValue))
                     recordMap[propId] = lookupValue;
                 else {
-                    error = new Error(`${propId} was marked as JSON, but had value ${lookupValue}`);
+                    error = new Error(`${propId} was marked as JSON, but had type "${typeof(lookupValue)}" and value "${lookupValue}"`);
                     throw error;
                 }
                 break;
@@ -196,7 +197,7 @@ function validateRecordMap(
                 if (_.isString(lookupValue))
                     recordMap[propId] = lookupValue;
                 else {
-                    error = new Error(`${propId} was marked as STRING, but had value ${lookupValue}`);
+                    error = new Error(`${propId} was marked as STRING, but had type "${typeof(lookupValue)}" and value "${lookupValue}"`);
                     throw error;
                 }
                 break;
@@ -204,7 +205,7 @@ function validateRecordMap(
                 if (_.isSafeInteger(lookupValue))
                     recordMap[propId] = lookupValue;
                 else {
-                    error = new Error(`${propId} was marked as INTEGER, but had value ${lookupValue}`);
+                    error = new Error(`${propId} was marked as INTEGER, but had type "${typeof(lookupValue)}" and value "${lookupValue}"`);
                     throw error;
                 }
                 break;
@@ -212,7 +213,15 @@ function validateRecordMap(
                 if (_.isNumber(lookupValue))
                     recordMap[propId] = lookupValue;
                 else {
-                    error = new Error(`${propId} was marked as FLOAT, but had value ${lookupValue}`);
+                    error = new Error(`${propId} was marked as FLOAT, but had type "${typeof(lookupValue)}" and value "${lookupValue}"`);
+                    throw error;
+                }
+                break;
+            case PropertyType.BOOL:
+                if (_.isBoolean(lookupValue))
+                    recordMap[propId] = lookupValue;
+                else {
+                    error = new Error(`${propId} was marked as BOOL, but had type "${typeof(lookupValue)}" and value "${lookupValue}"`);
                     throw error;
                 }
                 break;
@@ -446,7 +455,8 @@ export class Plugin implements IPublisherServer {
                 let record = new Record();
                 record.setAction(Record.Action.UPSERT);
                 record.setDataJson(JSON.stringify(data));
-                res.sendStatus(500);
+                call.write(record);
+                res.status(500).send(error.toString());
             }
         });
 
@@ -474,9 +484,10 @@ export class Plugin implements IPublisherServer {
                 logger.Error(error, 'Delete request resulted in an error', logParams);
                 let data = req.body;
                 let record = new Record();
-                record.setAction(Record.Action.UPSERT);
+                record.setAction(Record.Action.DELETE);
                 record.setDataJson(JSON.stringify(data));
-                res.sendStatus(500);
+                call.write(record);
+                res.status(500).send(error.toString());
             }
         });
 

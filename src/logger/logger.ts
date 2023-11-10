@@ -215,7 +215,7 @@ export class Logger {
     }
 
     private sendLogError(error: Error, message?: string, params?: LogParams): void {
-        let errorParams = params ?? {};
+        let errorParams = _.cloneDeep(params) ?? {};
         errorParams['error'] = error;
 
         const formattedMessage = this.formatLogMessage(LogLevel.ERROR, message ?? 'Error', this.logPrefix, errorParams);
