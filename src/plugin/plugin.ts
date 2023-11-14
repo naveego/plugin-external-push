@@ -231,6 +231,7 @@ function validateRecordMap(
         }
     }
 
+    logger.Info('Record validated...', logParams);
     return recordMap;
 }
 
@@ -440,7 +441,7 @@ export class Plugin implements IPublisherServer {
 
                 let record = new Record();
                 record.setAction(Record.Action.UPSERT);
-                record.setDataJson(JSON.stringify(data));
+                record.setDataJson(JSON.stringify(recordMap));
 
                 // upload record to agent
                 logger.Info('Sent record for Upsert', logParams);
@@ -513,6 +514,7 @@ export class Plugin implements IPublisherServer {
     async disconnect(call: ServerUnaryCall<DisconnectRequest, DisconnectResponse>, callback: sendUnaryData<DisconnectResponse>) {
         logger.SetLogPrefix('disconnect');
         logger.Info('Disconnecting...');
+        logger.Flush();
 
         clearConnection();
     
