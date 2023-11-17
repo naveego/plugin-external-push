@@ -3,6 +3,8 @@ import _ from 'lodash';
 import moment from 'moment';
 import fsAsync from 'fs/promises';
 import fs from 'fs';
+import os from 'os';
+import { setTimeout } from 'timers';
 
 type LogEntry = {
     message: string;
@@ -161,6 +163,15 @@ export class Logger {
         if (!this.logBuffer.init(logPath, 200, undefined, process.stderr)) {
             process.stderr.write(`[${this.getLevelString(LogLevel.ERROR)}] Logger | Cannot initialize log buffer`);
         }
+
+        this.backgroundFlush();
+    }
+
+    private backgroundFlush() {
+        setTimeout(() => {
+            this.Flush();
+            this.backgroundFlush();
+        }, 30000);
     }
 
     private formatLogMessage = (logLevel: LogLevel, message: string, prefix: string, params?: LogParams): string => {
@@ -203,7 +214,7 @@ export class Logger {
             result = `${result.padEnd(this.padLength - 5)}     ${paramsStr}`;
         }
     
-        return `${result}\n`;
+        return `${result}${os.EOL}`;
     };
 
     private sendLogMsg(message: string, level: LogLevel, params?: LogParams): void {
@@ -215,7 +226,7 @@ export class Logger {
     }
 
     private sendLogError(error: Error, message?: string, params?: LogParams): void {
-        let errorParams = params ?? {};
+        let errorParams = _.cloneDeep(params) ?? {};
         errorParams['error'] = error;
 
         const formattedMessage = this.formatLogMessage(LogLevel.ERROR, message ?? 'Error', this.logPrefix, errorParams);

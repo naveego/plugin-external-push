@@ -154,6 +154,7 @@ describe('config schema module', () => {
     // SETUP
     const expectedSchemaObject = {
         'type': 'object',
+        'description': 'Only the Real Time Read schedule is supported by this plugin.',
         'properties': {
             'connectionId': {
                 'type': 'string',
@@ -270,7 +271,7 @@ describe('plugin module', () => {
 
         // ASSERT
         const pathExists = (folderName: string) => fs.existsSync(
-            path.join(__dirname, '..', '..', '..', folderName)
+            path.join(__dirname, '..', '..', folderName)
         );
         expect(pathExists('agent-directories/Logs')).toBe(true);
         expect(pathExists('agent-directories/Perm')).toBe(true);
@@ -367,7 +368,7 @@ describe('plugin module', () => {
         json: object | null;
         myInt: number | null;
         myFloat: number | null;
-        updatedAt: Date | null;
+        updatedAt: Date | string | null;
     };
 
     type MockRecordDataOutput = {
@@ -499,7 +500,7 @@ describe('plugin module', () => {
             json: { myData1: 1, myDataStr: 'some-text' },
             myInt: 1,
             myFloat: 1.00,
-            updatedAt: new Date()
+            updatedAt: '20200130'
         };
 
         let client = getGrpcClient();

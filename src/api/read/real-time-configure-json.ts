@@ -3,7 +3,8 @@ export const GetSchemaJson = () => JSON.stringify({
     'properties': {
         'channelName': {
             'type': 'string',
-            'title': 'Channel name'
+            'title': 'Channel name',
+            'description': 'Used as an identifier to mark log messages associated with this Input. It is recommended to use a unique value for each Input.'
         }
     },
     'required': [
